@@ -80,8 +80,8 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
 .readout{font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
 .readout.empty{color:var(--muted)}
 .readout.bad{border-color:var(--bad);color:var(--bad)}
-input[type=text]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
-input[type=text]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px;border-color:transparent}
+input[type=text],input[type=email],input[type=password]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+input[type=text]:focus-visible,input[type=email]:focus-visible,input[type=password]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px;border-color:transparent}
 .drop{border:1.5px dashed var(--line);border-radius:10px;padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;background:var(--bg)}
 .drop:hover,.drop.over{border-color:var(--fg)}
 .drop:focus-within{outline:2px solid var(--shirt);outline-offset:1px}
@@ -118,6 +118,34 @@ input[type=text]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px
 .mine-list .meta,.orders .meta{flex:1;min-width:0}
 .mono{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .banner{font-size:14px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0}
+
+/* admin */
+.foot{display:flex;justify-content:center}
+.linkbtn{background:none;border:0;padding:4px 8px;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.linkbtn:focus-visible{outline:2px solid var(--sel);outline-offset:2px;border-radius:4px}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--fg);padding:22px;width:min(380px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(5,8,15,.6)}
+dialog form{display:flex;flex-direction:column;gap:12px;margin:0}
+dialog h2{font-family:var(--display);font-stretch:125%;font-weight:800;font-size:20px;margin:0}
+dialog label{font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:6px}
+dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.adm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.adm-stats{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.adm-list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;max-height:min(60vh,640px);overflow-y:auto}
+.adm-list li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:6px 0}
+.adm-pick{flex:1;min-width:0;display:flex;gap:10px;align-items:center;text-align:left;background:none;border:0;border-radius:8px;padding:6px;color:inherit;font:inherit;cursor:pointer}
+.adm-pick:hover{background:var(--bg)}
+.adm-pick[aria-pressed="true"]{background:var(--bg);box-shadow:inset 0 0 0 2px var(--sel)}
+.adm-pick:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+.adm-pick .thumb{width:40px;height:40px;border-radius:6px;filter:grayscale(1)}
+.adm-pick .meta{min-width:0;display:flex;flex-direction:column;font-size:14px}
+.adm-pick .meta b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-mail{font-size:13px;color:var(--fg);overflow-wrap:anywhere;max-width:45%;text-align:right}
+.adm-mail.none{color:var(--muted)}
+.grid.admin{cursor:grab}
+.grid.admin .cell{cursor:inherit}
+.grid.admin.dragging{cursor:grabbing}
+.photo.lifted{opacity:.3}
 @media (prefers-reduced-motion:no-preference){.sel{transition:background-color .12s}}
 </style>
 <style>body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
@@ -183,6 +211,8 @@ input[type=text]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px
       <div class="step">
         <label for="fullname">3. Your full name</label>
         <input type="text" id="fullname" autocomplete="name" placeholder="First and last name" maxlength="80">
+        <label for="email">Your email <small class="hint">(only the organiser sees this, to contact you about your photo)</small></label>
+        <input type="email" id="email" autocomplete="email" inputmode="email" placeholder="name@example.com" maxlength="254">
       </div>
 
       <div class="step">
@@ -201,8 +231,40 @@ input[type=text]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px
       <button class="btn" id="submit" disabled>Reserve spaces</button>
       <p class="msg" id="msg" role="status"></p>
     </aside>
+
+    <aside class="panel" id="admin-panel" hidden>
+      <div class="adm-head">
+        <div>
+          <h2>Admin</h2>
+          <span class="hint" id="adm-who"></span>
+        </div>
+        <button type="button" class="btn ghost" id="adm-signout">Sign out</button>
+      </div>
+      <p class="hint">Drag a photo on the shirt to move it. To move one to the other side, select it (on the shirt or below), switch side, then tap the square for its top-left corner. Sizes can't be changed.</p>
+      <p class="msg" id="adm-msg" role="status"></p>
+      <div class="adm-head">
+        <span class="adm-stats" id="adm-stats"></span>
+        <button type="button" class="btn ghost" id="adm-copy">Copy all emails</button>
+      </div>
+      <ul class="adm-list" id="adm-list"></ul>
+    </aside>
   </div>
+
+  <footer class="foot"><button type="button" class="linkbtn" id="admin-open">Organiser sign-in</button></footer>
 </div>
+
+<dialog id="login-dlg" aria-labelledby="login-title">
+  <form id="login-form">
+    <h2 id="login-title">Organiser sign-in</h2>
+    <label>Email<input type="email" id="login-email" autocomplete="username" required></label>
+    <label>Password<input type="password" id="login-pass" autocomplete="current-password" required></label>
+    <p class="msg err" id="login-msg" role="alert"></p>
+    <div class="row">
+      <button type="button" class="btn ghost" id="login-cancel">Cancel</button>
+      <button type="submit" class="btn" id="login-go">Sign in</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.87.1/dist/umd/supabase.js"></script>
 <script>
@@ -226,10 +288,14 @@ const rectLabel=s=>s.w===1&&s.h===1?label(s.c,s.r):label(s.c,s.r)+"–"+label(s.
 const gbp=n=>"£"+n.toLocaleString("en-GB");
 const selKey=s=>s?[s.side,s.c,s.r,s.w,s.h].join(":"):"";
 const photoUrl=p=>S.sb?S.sb.storage.from("photos").getPublicUrl(p).data.publicUrl:"";
+const EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+/* admin state: pick = selected reservation id, drag = active drag, ghost = where it would land */
+const A={on:false,rows:[],pick:null,drag:null,ghost:null,busy:false};
+const byId=id=>S.spaces.find(p=>p.id===id);
 
-function occupied(side){
+function occupied(side,exceptId){
   const m=new Set();
-  for(const p of S.spaces) if(p.side===side)
+  for(const p of S.spaces) if(p.side===side&&p.id!==exceptId)
     for(let r=p.r;r<p.r+p.h;r++) for(let c=p.c;c<p.c+p.w;c++) m.add(c+","+r);
   return m;
 }
@@ -237,8 +303,8 @@ function rectFrom(a,b){
   const c=Math.min(a.c,b.c), r=Math.min(a.r,b.r);
   return {c,r,w:Math.abs(a.c-b.c)+1,h:Math.abs(a.r-b.r)+1};
 }
-function clashes(rect,side){
-  const occ=occupied(side);
+function clashes(rect,side,exceptId){
+  const occ=occupied(side,exceptId);
   for(let r=rect.r;r<rect.r+rect.h;r++) for(let c=rect.c;c<rect.c+rect.w;c++) if(occ.has(c+","+r)) return true;
   return false;
 }
@@ -271,12 +337,20 @@ function render(){
   grid.querySelectorAll(".photo,.sel").forEach(e=>e.remove());
   for(const p of S.spaces) if(p.side===side){
     const d=document.createElement("div");
-    d.className="photo";
+    d.className="photo"+(A.on&&p.id===A.pick?" mine":"")+(A.on&&A.ghost&&A.ghost.id===p.id?" lifted":"");
     d.style.gridArea=`${p.r+1}/${p.c+1}/span ${p.h}/span ${p.w}`;
     d.style.backgroundImage=`url("${photoUrl(p.photo_path)}")`;
     grid.appendChild(d);
   }
-  if(S.sel && S.sel.side===side){
+  if(A.on&&A.ghost&&A.ghost.side===side){
+    const g=A.ghost, bad=clashes(g,side,g.id), sp=byId(g.id);
+    const d=document.createElement("div");
+    d.className="sel"+(bad?" bad":" has-img");
+    d.style.gridArea=`${g.r+1}/${g.c+1}/span ${g.h}/span ${g.w}`;
+    if(!bad&&sp) d.style.backgroundImage=`url("${photoUrl(sp.photo_path)}")`;
+    grid.appendChild(d);
+  }
+  if(!A.on && S.sel && S.sel.side===side){
     const bad=clashes(S.sel,side);
     const d=document.createElement("div");
     d.className="sel"+(bad?" bad":"")+(S.fileUrl&&!bad?" has-img":"");
@@ -308,8 +382,9 @@ function validate(){
   const name=$("fullname").value.trim();
   const fullOk=/\S+\s+\S+/.test(name);
   const selOk=S.sel&&!clashes(S.sel,S.sel.side);
+  const emailOk=EMAIL_RE.test($("email").value.trim());
   const agreeOk=$("agree").checked&&S.agreedKey===selKey(S.sel);
-  $("submit").disabled=S.busy||!S.ready||!selOk||!S.file||!fullOk||!agreeOk;
+  $("submit").disabled=S.busy||!S.ready||!selOk||!S.file||!fullOk||!emailOk||!agreeOk;
   $("submit").textContent=S.sel?"Reserve for "+gbp(S.sel.w*S.sel.h*PRICE):"Reserve spaces";
   const m=$("msg");
   if(S.busy||m.dataset.sticky) return;
@@ -319,6 +394,7 @@ function validate(){
   else if(!selOk) m.textContent="That rectangle covers a taken space. Pick free squares only.";
   else if(!S.file) m.textContent="Now add your photo.";
   else if(!fullOk) m.textContent="Enter your full name (first and last).";
+  else if(!emailOk) m.textContent="Enter your email so the organiser can contact you.";
   else if(!agreeOk) m.textContent="Tick the box to agree to the price.";
   else m.textContent="Ready to reserve.";
 }
@@ -333,6 +409,7 @@ function cellAt(x,y){
 }
 grid.addEventListener("pointerdown",e=>{
   if(e.button!==0) return;
+  if(A.on){adminDown(e);return;}
   const p=cellAt(e.clientX,e.clientY);
   delete $("msg").dataset.sticky;
   if(e.shiftKey&&S.anchor&&S.sel?.side===S.side) S.sel={...rectFrom(S.anchor,p),side:S.side};
@@ -340,17 +417,19 @@ grid.addEventListener("pointerdown",e=>{
   S.dragging=true;grid.setPointerCapture(e.pointerId);render();
 });
 grid.addEventListener("pointermove",e=>{
+  if(A.on){adminMoveDrag(e);return;}
   if(!S.dragging) return;
   const n={...rectFrom(S.anchor,cellAt(e.clientX,e.clientY)),side:S.side};
   if(selKey(n)!==selKey(S.sel)){S.sel=n;render();}
 });
-const endDrag=()=>{S.dragging=false;};
+const endDrag=e=>{S.dragging=false;if(A.on) adminUp(e);};
 grid.addEventListener("pointerup",endDrag);grid.addEventListener("pointercancel",endDrag);
 grid.addEventListener("keydown",e=>{
   const b=e.target.closest(".cell");if(!b) return;
   const p={c:+b.dataset.c,r:+b.dataset.r};
   if(e.key==="Enter"||e.key===" "){
     e.preventDefault();
+    if(A.on){adminTap(p);return;}
     if(e.shiftKey&&S.anchor) S.sel={...rectFrom(S.anchor,p),side:S.side};
     else {S.anchor=p;S.sel={...p,w:1,h:1,side:S.side};}
     render();grid.querySelector(`.cell[data-c="${p.c}"][data-r="${p.r}"]`)?.focus();
@@ -451,6 +530,7 @@ const drop=$("drop");
 ["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over");}));
 drop.addEventListener("drop",e=>setFile(e.dataTransfer.files[0]));
 $("fullname").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
+$("email").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
 $("agree").addEventListener("change",e=>{S.agreedKey=e.target.checked?selKey(S.sel):"";delete $("msg").dataset.sticky;validate();});
 
 /* ---------- data ---------- */
@@ -464,6 +544,7 @@ const uuid=()=>crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-10
 async function submit(){
   if($("submit").disabled) return;
   const name=$("fullname").value.trim().replace(/\s+/g," ");
+  const email=$("email").value.trim();
   const sel={...S.sel}, amount=sel.w*sel.h*PRICE, terms=$("agree-text").textContent;
   S.busy=true;validate();say("Checking the spaces are still free…");
   try{
@@ -479,13 +560,15 @@ async function submit(){
     say("Saving your reservation…");
     const {error}=await S.sb.rpc("reserve_spaces",{p_side:sel.side,p_c:sel.c,p_r:sel.r,p_w:sel.w,p_h:sel.h,p_name:name,p_photo_path:path,p_terms:terms,p_agreed:true});
     if(error) throw error;
+    const em=await S.sb.rpc("set_reservation_email",{p_photo_path:path,p_email:email});
     await loadSpaces();
     S.sel=null;S.anchor=null;S.file=null;S.agreedKey="";
     if(S.fileUrl) URL.revokeObjectURL(S.fileUrl);S.fileUrl=null;
     IMG.token++;IMG.gray=null;$("editor").hidden=true;
     $("photo").value="";$("thumb").style.backgroundImage="";$("drop-title").textContent="Choose a photo";$("drop-sub").textContent="or drop it here";
     S.busy=false;render();
-    say(`Reserved ${sel.side} ${rectLabel(sel)} for ${name}. You've agreed to pay ${gbp(amount)}.`,"ok",true);
+    if(em.error) say(`Reserved ${sel.side} ${rectLabel(sel)} for ${name}. You've agreed to pay ${gbp(amount)}. Your email didn't save, so please send it to the organiser.`,"ok",true);
+    else say(`Reserved ${sel.side} ${rectLabel(sel)} for ${name}. You've agreed to pay ${gbp(amount)}. We'll contact you at ${email}.`,"ok",true);
   }catch(err){
     S.busy=false;
     const t=String(err&&(err.message||err.error)||"");
@@ -501,6 +584,140 @@ async function submit(){
 }
 $("submit").onclick=submit;
 
+/* ---------- admin (organiser only; the database checks the signed-in user is in public.admins) ---------- */
+function admSay(text,kind){const m=$("adm-msg");m.textContent=text||"";m.className="msg"+(kind?" "+kind:"");}
+const spotAt=(side,c,r)=>S.spaces.find(p=>p.side===side&&c>=p.c&&c<p.c+p.w&&r>=p.r&&r<p.r+p.h);
+const clampTo=(sp,c,r)=>({c:Math.max(0,Math.min(COLS-sp.w,c)),r:Math.max(0,Math.min(ROWS-sp.h,r))});
+const sideName=s=>s==="front"?"Front":"Back";
+
+function adminSelect(id){A.pick=A.pick===id?null:id;A.ghost=null;render();renderAdminList();}
+function adminTap(p){
+  if(A.busy) return;
+  const hit=spotAt(S.side,p.c,p.r);
+  if(hit){adminSelect(hit.id);return;}
+  const sp=A.pick&&byId(A.pick);
+  if(sp){const t=clampTo(sp,p.c,p.r);moveTo(sp,S.side,t.c,t.r);}
+}
+function adminDown(e){
+  if(A.busy) return;
+  const p=cellAt(e.clientX,e.clientY), hit=spotAt(S.side,p.c,p.r);
+  if(!hit){adminTap(p);return;}
+  A.pick=hit.id;A.ghost=null;
+  A.drag={id:hit.id,offC:p.c-hit.c,offR:p.r-hit.r,moved:false};
+  grid.setPointerCapture(e.pointerId);grid.classList.add("dragging");
+  render();renderAdminList();
+}
+function adminMoveDrag(e){
+  const d=A.drag; if(!d) return;
+  const sp=byId(d.id); if(!sp) return;
+  const p=cellAt(e.clientX,e.clientY), t=clampTo(sp,p.c-d.offC,p.r-d.offR);
+  const same=t.c===sp.c&&t.r===sp.r&&S.side===sp.side;
+  if(!same) d.moved=true;
+  const g=same?null:{...t,w:sp.w,h:sp.h,side:S.side,id:sp.id};
+  if(JSON.stringify(g)!==JSON.stringify(A.ghost)){A.ghost=g;render();}
+}
+function adminUp(){
+  const d=A.drag; if(!d) return;
+  A.drag=null;grid.classList.remove("dragging");
+  const g=A.ghost, sp=byId(d.id);
+  if(d.moved&&g&&sp) moveTo(sp,g.side,g.c,g.r);
+  else {A.ghost=null;render();}
+}
+async function moveTo(sp,side,c,r){
+  if(sp.side===side&&sp.c===c&&sp.r===r){A.ghost=null;render();return;}
+  if(clashes({c,r,w:sp.w,h:sp.h},side,sp.id)){A.ghost=null;render();admSay("That spot overlaps another photo. Pick free squares.","err");return;}
+  const before={side:sp.side,c:sp.c,r:sp.r};
+  Object.assign(sp,{side,c,r});A.ghost=null;A.busy=true;render();   // move straight away, undo if the save fails
+  admSay("Moving…");
+  const {error}=await S.sb.rpc("admin_move",{p_id:sp.id,p_side:side,p_c:c,p_r:r});
+  A.busy=false;
+  if(error){
+    Object.assign(sp,before);
+    const t=error.message||"";
+    admSay(/taken/.test(t)?"Someone else is in that spot now. The shirt has been refreshed."
+      :/not_admin|JWT|jwt/.test(t)?"You're no longer signed in as the organiser. Sign in again."
+      :"The move didn't save. Check your connection and try again.","err");
+  } else admSay(`Moved to ${sideName(side)} ${rectLabel({c,r,w:sp.w,h:sp.h})}.`,"ok");
+  try{await loadSpaces();await loadAdmin();}catch(e){}
+  render();renderAdminList();
+}
+
+async function loadAdmin(){
+  const {data,error}=await S.sb.rpc("admin_list");
+  if(error) throw error;
+  A.rows=data||[];
+}
+function renderAdminList(){
+  const ul=$("adm-list");ul.innerHTML="";
+  let spaces=0;
+  for(const row of A.rows){
+    spaces+=row.w*row.h;
+    const li=document.createElement("li");
+    const b=document.createElement("button");
+    b.type="button";b.className="adm-pick";b.setAttribute("aria-pressed",row.id===A.pick);
+    const th=document.createElement("span");th.className="thumb";th.style.backgroundImage=`url("${photoUrl(row.photo_path)}")`;
+    const meta=document.createElement("span");meta.className="meta";
+    const nm=document.createElement("b");nm.textContent=row.full_name||"(no name)";
+    const pos=document.createElement("span");pos.className="mono";
+    pos.textContent=`${sideName(row.side)} ${rectLabel(row)} · ${row.w*row.h} × ${gbp(PRICE)} = ${gbp(row.w*row.h*PRICE)}`;
+    meta.append(nm,pos);b.append(th,meta);
+    b.onclick=()=>{if(row.side!==S.side){S.side=row.side;S.sel=null;}adminSelect(row.id);};
+    let mail;
+    if(row.email){mail=document.createElement("a");mail.href="mailto:"+encodeURIComponent(row.email).replace(/%40/g,"@");mail.textContent=row.email;}
+    else {mail=document.createElement("span");mail.textContent="no email";mail.classList.add("none");}
+    mail.classList.add("adm-mail");
+    li.append(b,mail);ul.appendChild(li);
+  }
+  $("adm-stats").textContent=`${A.rows.length} reservation${A.rows.length===1?"":"s"} · ${spaces} spaces · ${gbp(spaces*PRICE)}`;
+}
+async function enterAdmin(silent){
+  try{await loadAdmin();}
+  catch(err){
+    const t=String(err.message||"");
+    if(!silent) $("login-msg").textContent=/not_admin/.test(t)?"This account isn't the organiser account."
+      :/admin_list|schema cache|PGRST202/.test(t+(err.code||""))?"Admin tools aren't set up yet. Run supabase/admin-and-email.sql in Supabase first."
+      :"Couldn't load the admin view. Try again.";
+    await S.sb.auth.signOut();return false;
+  }
+  const {data:{user}}=await S.sb.auth.getUser();
+  A.on=true;A.pick=null;A.ghost=null;S.sel=null;S.anchor=null;
+  $("adm-who").textContent=user?"Signed in as "+user.email:"";
+  document.querySelector(".panel:not(#admin-panel)").hidden=true;
+  $("admin-panel").hidden=false;$("admin-open").hidden=true;
+  grid.classList.add("admin");admSay("");
+  render();renderAdminList();
+  return true;
+}
+function leaveAdmin(){
+  A.on=false;A.rows=[];A.pick=null;A.ghost=null;A.drag=null;
+  document.querySelector(".panel:not(#admin-panel)").hidden=false;
+  $("admin-panel").hidden=true;$("admin-open").hidden=false;
+  grid.classList.remove("admin","dragging");$("adm-list").innerHTML="";
+  render();
+}
+const dlg=$("login-dlg");
+$("admin-open").onclick=()=>{
+  if(!S.sb){banner("The booking service hasn't loaded yet. Reload the page and try again.");return;}
+  $("login-msg").textContent="";dlg.showModal();$("login-email").focus();
+};
+$("login-cancel").onclick=()=>dlg.close();
+$("login-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const go=$("login-go");go.disabled=true;$("login-msg").textContent="";
+  const {error}=await S.sb.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-pass").value});
+  if(error){$("login-msg").textContent=/invalid/i.test(error.message)?"Wrong email or password.":"Couldn't sign in. Try again.";go.disabled=false;return;}
+  const ok=await enterAdmin(false);
+  go.disabled=false;
+  if(ok){$("login-pass").value="";dlg.close();}
+});
+$("adm-signout").onclick=async()=>{await S.sb.auth.signOut();leaveAdmin();};
+$("adm-copy").onclick=async()=>{
+  const list=[...new Set(A.rows.map(r=>r.email).filter(Boolean))].join("; ");
+  if(!list){admSay("No emails to copy yet.");return;}
+  try{await navigator.clipboard.writeText(list);admSay("Copied "+list.split("; ").length+" emails.","ok");}
+  catch(e){admSay("Couldn't copy automatically. Emails: "+list);}
+};
+
 /* ---------- boot ---------- */
 buildCells();render();
 (async()=>{
@@ -508,10 +725,14 @@ buildCells();render();
     banner("Setup needed: add your Supabase project URL and key at the top of the script in index.html.");return;
   }
   if(!window.supabase){banner("Couldn't load the booking service. Check your connection and reload the page.");return;}
-  S.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false}});
+  S.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true}});
   try{await loadSpaces();S.ready=true;banner("");render();}
   catch(e){banner("Couldn't load reservations right now. Reload the page to try again.");return;}
-  setInterval(async()=>{if(S.busy||document.hidden) return;try{await loadSpaces();render();}catch(e){}},20000);
+  try{const {data:{session}}=await S.sb.auth.getSession();if(session) await enterAdmin(true);}catch(e){}
+  setInterval(async()=>{
+    if(S.busy||A.busy||A.drag||document.hidden) return;
+    try{await loadSpaces();if(A.on){await loadAdmin();renderAdminList();}render();}catch(e){}
+  },20000);
 })();
 </script>
 </body>
