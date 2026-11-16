@@ -30,10 +30,10 @@
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
-.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+.wrap{max-width:1840px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
 header h1{font-family:var(--display);font-stretch:125%;font-weight:800;font-size:clamp(28px,5vw,44px);line-height:1;margin:0;letter-spacing:-.01em;text-wrap:balance}
 header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
-.layout{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(300px,.9fr);gap:28px;align-items:start}
+.layout{display:grid;grid-template-columns:minmax(0,2.6fr) minmax(300px,.85fr);gap:28px;align-items:start}
 @media (max-width:900px){.layout{grid-template-columns:1fr}}
 
 .stage{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -43,7 +43,7 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
 .tabs button:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
 .tabs .n{font-family:var(--mono);font-size:12px;opacity:.75;margin-left:6px}
 
-.shirt{position:relative;width:100%;max-width:1040px;aspect-ratio:400/412;margin:0 auto}
+.shirt{position:relative;width:100%;max-width:1400px;aspect-ratio:400/412;margin:0 auto}
 .shirt svg{position:absolute;inset:0;width:100%;height:100%}
 .shirt .body{fill:var(--shirt);stroke:var(--shirt-edge);stroke-width:2}
 .shirt .seam{fill:none;stroke:var(--shirt-edge);stroke-width:1.5;opacity:.8}
