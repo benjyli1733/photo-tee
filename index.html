@@ -235,6 +235,14 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
         </label>
       </div>
 
+      <div class="step">
+        <span class="lbl">5. Photo rules</span>
+        <label class="agree" for="consent">
+          <input type="checkbox" id="consent">
+          <span id="consent-text">I agree that the organisers may remove, and refund, any photo they consider inappropriate, and may move photos to a different position on the shirt where necessary.</span>
+        </label>
+      </div>
+
       <button class="btn" id="submit" disabled>Reserve spaces</button>
       <p class="msg" id="msg" role="status"></p>
     </aside>
@@ -403,7 +411,8 @@ function validate(){
   const selOk=S.sel&&!clashes(S.sel,S.sel.side);
   const emailOk=EMAIL_RE.test($("email").value.trim());
   const agreeOk=$("agree").checked&&S.agreedKey===selKey(S.sel);
-  $("submit").disabled=S.busy||!S.ready||!selOk||!S.file||!fullOk||!emailOk||!agreeOk;
+  const consentOk=$("consent").checked;
+  $("submit").disabled=S.busy||!S.ready||!selOk||!S.file||!fullOk||!emailOk||!agreeOk||!consentOk;
   $("submit").textContent=S.sel?"Reserve for "+gbp(S.sel.w*S.sel.h*PRICE):"Reserve spaces";
   const m=$("msg");
   if(S.busy||m.dataset.sticky) return;
@@ -415,6 +424,7 @@ function validate(){
   else if(!fullOk) m.textContent="Enter your full name (first and last).";
   else if(!emailOk) m.textContent="Enter your email so the organiser can contact you.";
   else if(!agreeOk) m.textContent="Tick the box to agree to the price.";
+  else if(!consentOk) m.textContent="Tick the box to agree to the photo rules.";
   else m.textContent="Ready to reserve.";
 }
 function say(text,kind,sticky){const m=$("msg");m.textContent=text;m.className="msg"+(kind?" "+kind:"");if(sticky)m.dataset.sticky="1";else delete m.dataset.sticky;}
@@ -550,6 +560,7 @@ const drop=$("drop");
 drop.addEventListener("drop",e=>setFile(e.dataTransfer.files[0]));
 $("fullname").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
 $("email").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
+$("consent").addEventListener("change",()=>{delete $("msg").dataset.sticky;validate();});
 $("agree").addEventListener("change",e=>{S.agreedKey=e.target.checked?selKey(S.sel):"";delete $("msg").dataset.sticky;validate();});
 
 /* ---------- data ---------- */
@@ -564,7 +575,7 @@ async function submit(){
   if($("submit").disabled) return;
   const name=$("fullname").value.trim().replace(/\s+/g," ");
   const email=$("email").value.trim();
-  const sel={...S.sel}, amount=sel.w*sel.h*PRICE, terms=$("agree-text").textContent;
+  const sel={...S.sel}, amount=sel.w*sel.h*PRICE, terms=$("agree-text").textContent+" "+$("consent-text").textContent;
   S.busy=true;validate();say("Checking the spaces are still free…");
   try{
     await loadSpaces();
@@ -581,7 +592,7 @@ async function submit(){
     if(error) throw error;
     const em=await S.sb.rpc("set_reservation_email",{p_photo_path:path,p_email:email});
     await loadSpaces();
-    S.sel=null;S.anchor=null;S.file=null;S.agreedKey="";
+    S.sel=null;S.anchor=null;S.file=null;S.agreedKey="";$("consent").checked=false;
     if(S.fileUrl) URL.revokeObjectURL(S.fileUrl);S.fileUrl=null;
     IMG.token++;IMG.gray=null;$("editor").hidden=true;
     $("photo").value="";$("thumb").style.backgroundImage="";$("drop-title").textContent="Choose a photo";$("drop-sub").textContent="or drop it here";
