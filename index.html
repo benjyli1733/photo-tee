@@ -148,6 +148,10 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 .photo.lifted{opacity:.3}
 .adm-sel{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;background:var(--bg);border:2px solid var(--sel);border-radius:10px;padding:10px 12px}
 .adm-sel span{min-width:0;overflow-wrap:anywhere}
+.adm-export{display:flex;flex-direction:column;gap:8px}
+.adm-export .lbl{font-weight:600;font-size:14px}
+.adm-export-btns{display:flex;flex-wrap:wrap;gap:8px}
+.adm-export-btns .btn{color:var(--fg);font-size:14px;padding:8px 14px}
 .btn.danger{background:var(--bad);color:#fff;padding:8px 14px;font-size:14px;flex:none}
 @media (prefers-reduced-motion:no-preference){.sel{transition:background-color .12s}}
 </style>
@@ -248,6 +252,14 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
       <div class="adm-sel" id="adm-sel" hidden>
         <span id="adm-sel-text"></span>
         <button type="button" class="btn danger" id="adm-remove">Remove</button>
+      </div>
+      <div class="adm-export">
+        <span class="lbl">Download layout <small>(PNG, transparent background, photos at their grid positions)</small></span>
+        <div class="adm-export-btns">
+          <button type="button" class="btn ghost" data-export="front">Front</button>
+          <button type="button" class="btn ghost" data-export="back">Back</button>
+          <button type="button" class="btn ghost" data-export="both">Both sides</button>
+        </div>
       </div>
       <div class="adm-head">
         <span class="adm-stats" id="adm-stats"></span>
@@ -680,6 +692,60 @@ function renderAdminList(){
   $("adm-sel").hidden=!sel;
   if(sel) $("adm-sel-text").textContent=`Selected: ${sel.full_name||"(no name)"}, ${sideName(sel.side)} ${rectLabel(sel)}`;
 }
+/* Layout export: each grid square is EXPORT_CELL px, with the same gap-to-square ratio as the site.
+   400px squares keep "both sides" under ~16 MP, which every browser (including iPhone Safari) can draw. */
+const EXPORT_CELL=400, EXPORT_GAP=24;
+const imgCache=new Map();
+function loadImg(url){
+  if(!imgCache.has(url)) imgCache.set(url,new Promise((res,rej)=>{
+    const i=new Image();i.crossOrigin="anonymous";
+    i.onload=()=>res(i);i.onerror=()=>{imgCache.delete(url);rej(new Error("img"));};
+    i.src=url;
+  }));
+  return imgCache.get(url);
+}
+function drawCover(ctx,img,x,y,w,h){        // same centred crop as the photos on the site
+  const s=Math.max(w/img.naturalWidth,h/img.naturalHeight), sw=w/s, sh=h/s;
+  ctx.drawImage(img,(img.naturalWidth-sw)/2,(img.naturalHeight-sh)/2,sw,sh,x,y,w,h);
+}
+async function buildLayout(which){
+  const sides=which==="both"?["front","back"]:[which];
+  const step=EXPORT_CELL+EXPORT_GAP, span=n=>n*EXPORT_CELL+(n-1)*EXPORT_GAP;
+  const sw=span(COLS), sh=span(ROWS), sep=EXPORT_CELL;
+  const cv=document.createElement("canvas");
+  cv.width=sides.length*sw+(sides.length-1)*sep;cv.height=sh;
+  const ctx=cv.getContext("2d",{willReadFrequently:true});
+  let failed=0, drawn=0;
+  for(const [i,side] of sides.entries()){
+    const ox=i*(sw+sep);
+    for(const p of S.spaces) if(p.side===side){
+      try{drawCover(ctx,await loadImg(photoUrl(p.photo_path)),ox+p.c*step,p.r*step,span(p.w),span(p.h));drawn++;}
+      catch(e){failed++;}
+    }
+  }
+  const im=ctx.getImageData(0,0,cv.width,cv.height), d=im.data;   // black and white, keeping transparency
+  for(let j=0;j<d.length;j+=4){if(d[j+3]){const g=.299*d[j]+.587*d[j+1]+.114*d[j+2];d[j]=d[j+1]=d[j+2]=g;}}
+  ctx.putImageData(im,0,0);
+  const blob=await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("encode")),"image/png"));
+  return {blob,drawn,failed,width:cv.width,height:cv.height};
+}
+document.querySelectorAll("[data-export]").forEach(b=>b.onclick=async()=>{
+  const which=b.dataset.export, btns=document.querySelectorAll("[data-export]");
+  const count=S.spaces.filter(p=>which==="both"||p.side===which).length;
+  if(!count){admSay(`There are no photos on the ${which==="both"?"shirt":which} yet.`);return;}
+  btns.forEach(x=>x.disabled=true);admSay("Building the image…");
+  try{
+    const r=await buildLayout(which);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(r.blob);
+    a.download=`photo-tee-${which}-${new Date().toISOString().slice(0,10)}.png`;
+    document.body.append(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    admSay(`Downloaded ${a.download} (${r.width} × ${r.height} px, ${r.drawn} photo${r.drawn===1?"":"s"}).`
+      +(r.failed?` ${r.failed} photo${r.failed===1?"":"s"} couldn't be loaded and ${r.failed===1?"is":"are"} missing; try again.`:""),r.failed?"err":"ok");
+  }catch(e){admSay("Couldn't build the image. Try again, or try a different browser.","err");}
+  btns.forEach(x=>x.disabled=false);
+});
 $("adm-remove").onclick=async()=>{
   const row=A.rows.find(r=>r.id===A.pick); if(!row||A.busy) return;
   const where=`${sideName(row.side)} ${rectLabel(row)}`;
