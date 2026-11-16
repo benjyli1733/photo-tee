@@ -204,7 +204,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
           <canvas id="preview" aria-label="Black and white preview of your photo"></canvas>
           <div class="adj">
             <label for="adj-brightness">Brightness</label><input type="range" id="adj-brightness" data-k="brightness" min="-100" max="100" value="0"><output for="adj-brightness">0</output>
-            <label for="adj-contrast">Contrast</label><input type="range" id="adj-contrast" data-k="contrast" min="-100" max="100" value="0"><output for="adj-contrast">0</output>
+            <label for="adj-contrast">Contrast</label><input type="range" id="adj-contrast" data-k="contrast" min="-100" max="100" value="-50"><output for="adj-contrast">-50</output>
             <label for="adj-midtones">Midtones</label><input type="range" id="adj-midtones" data-k="midtones" min="-100" max="100" value="0"><output for="adj-midtones">0</output>
             <label for="adj-sharpness">Sharpness</label><input type="range" id="adj-sharpness" data-k="sharpness" min="0" max="100" value="0"><output for="adj-sharpness">0</output>
           </div>
@@ -470,7 +470,7 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{S.side=b.dat
 const EXT={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"};
 /* Uploaded photos are converted to black and white on a canvas; the sliders adjust that
    canvas live and the canvas itself (what you see) is what gets uploaded, as a JPEG. */
-const MAX_PX=2000, ADJ0={brightness:0,contrast:0,midtones:0,sharpness:0};
+const MAX_PX=2000, ADJ0={brightness:0,contrast:-50,midtones:0,sharpness:0};
 const IMG={gray:null,w:0,h:0,adj:{...ADJ0},token:0,raf:0};
 const preview=$("preview"), pctx=preview.getContext("2d",{willReadFrequently:true});
 
