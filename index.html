@@ -107,7 +107,9 @@ input[type=text]:focus-visible,input[type=email]:focus-visible,input[type=passwo
 .hint{font-size:13px;color:var(--muted);margin:0}
 
 .editor{display:flex;flex-direction:column;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
-.editor canvas{display:block;width:100%;height:auto;max-height:280px;object-fit:contain;border-radius:6px;background:var(--line)}
+.editor canvas{display:block;width:100%;height:auto;max-height:280px;object-fit:contain;border-radius:6px;background:var(--line);cursor:grab;touch-action:none}
+.editor canvas.panning{cursor:grabbing}
+.editor canvas:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
 .adj{display:grid;grid-template-columns:auto minmax(0,1fr) 4ch;gap:6px 12px;align-items:center;font-size:13px}
 .adj input[type=range]{width:100%;margin:0;accent-color:var(--fg)}
 .adj output{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
@@ -201,8 +203,10 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
           <span class="t"><b id="drop-title">Choose a photo</b><span id="drop-sub">or drop it here</span></span>
         </label>
         <div class="editor" id="editor" hidden>
-          <canvas id="preview" aria-label="Black and white preview of your photo"></canvas>
+          <canvas id="preview" tabindex="0" aria-label="Crop preview of your photo. Drag, or use the arrow keys, to choose what shows."></canvas>
+          <p class="hint">Drag the photo to choose what shows. The crop matches the shape of your spaces.</p>
           <div class="adj">
+            <label for="adj-zoom">Zoom</label><input type="range" id="adj-zoom" data-k="zoom" min="100" max="400" value="100"><output for="adj-zoom">100</output>
             <label for="adj-brightness">Brightness</label><input type="range" id="adj-brightness" data-k="brightness" min="-100" max="100" value="0"><output for="adj-brightness">0</output>
             <label for="adj-contrast">Contrast</label><input type="range" id="adj-contrast" data-k="contrast" min="-100" max="100" value="-50"><output for="adj-contrast">-50</output>
             <label for="adj-midtones">Midtones</label><input type="range" id="adj-midtones" data-k="midtones" min="-100" max="100" value="0"><output for="adj-midtones">0</output>
@@ -393,7 +397,7 @@ function render(){
     const b=document.createElement("span");b.textContent=bad?"Overlaps a taken space":`${n} space${n>1?"s":""} × ${gbp(PRICE)} = ${gbp(n*PRICE)}`;
     ro.append(a,b);
   } else {ro.className="readout empty";ro.textContent="No spaces selected";}
-  renderAgree();validate();
+  syncCropAspect();renderAgree();validate();
 }
 function renderAgree(){
   const box=$("agree"),wrap=$("agree-wrap"),txt=$("agree-text");
@@ -470,8 +474,26 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{S.side=b.dat
 const EXT={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"};
 /* Uploaded photos are converted to black and white on a canvas; the sliders adjust that
    canvas live and the canvas itself (what you see) is what gets uploaded, as a JPEG. */
-const MAX_PX=2000, ADJ0={brightness:0,contrast:-50,midtones:0,sharpness:0};
-const IMG={gray:null,w:0,h:0,adj:{...ADJ0},token:0,raf:0};
+const MAX_PX=2000, ADJ0={zoom:100,brightness:0,contrast:-50,midtones:0,sharpness:0};
+/* cx,cy: centre of the crop as a fraction of the photo. ar: crop aspect (width/height of the chosen spaces). */
+const IMG={gray:null,w:0,h:0,adj:{...ADJ0},token:0,raf:0,cx:.5,cy:.5,ar:1,arTimer:0};
+const selAspect=()=>S.sel?S.sel.w/S.sel.h:1;
+function cropRect(){
+  const {w:W,h:H,ar}=IMG, z=IMG.adj.zoom/100;
+  let cw=W/H>ar?H*ar:W, ch=W/H>ar?H:W/ar;
+  cw=Math.max(1,Math.min(W,Math.round(cw/z)));ch=Math.max(1,Math.min(H,Math.round(ch/z)));
+  const x=Math.round(Math.max(0,Math.min(W-cw,IMG.cx*W-cw/2)));
+  const y=Math.round(Math.max(0,Math.min(H-ch,IMG.cy*H-ch/2)));
+  IMG.cx=(x+cw/2)/W;IMG.cy=(y+ch/2)/H;                      // keep the centre inside the photo
+  return {x,y,cw,ch};
+}
+/* Called from render(): when the chosen spaces change shape, re-crop to the new shape */
+function syncCropAspect(){
+  if(!IMG.gray) return;
+  const ar=selAspect(); if(Math.abs(ar-IMG.ar)<1e-9) return;
+  IMG.ar=ar;clearTimeout(IMG.arTimer);
+  IMG.arTimer=setTimeout(()=>{paintPreview();refreshShirtPreview();},120);
+}
 const preview=$("preview"), pctx=preview.getContext("2d",{willReadFrequently:true});
 
 async function decodeImage(f){
@@ -492,10 +514,12 @@ function toneLut(a){
   return t;
 }
 function paintPreview(){
-  const {gray,w,h,adj}=IMG; if(!gray) return;
+  const {gray,adj}=IMG; if(!gray) return;
+  const {x:x0,y:y0,cw:w,ch:h}=cropRect(), W=IMG.w;
+  if(preview.width!==w||preview.height!==h){preview.width=w;preview.height=h;}
   const t=toneLut(adj), n=w*h;
   let g=new Uint8ClampedArray(n);
-  for(let i=0;i<n;i++) g[i]=t[gray[i]];
+  for(let y=0,i=0;y<h;y++){const o=(y0+y)*W+x0;for(let x=0;x<w;x++,i++) g[i]=t[gray[o+x]];}
   if(adj.sharpness>0){                                       // unsharp mask, 3x3 box blur
     const amt=adj.sharpness/40, s=new Uint8ClampedArray(g);
     for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
@@ -526,7 +550,38 @@ document.querySelectorAll(".adj input").forEach(r=>{
   r.addEventListener("input",()=>{IMG.adj[r.dataset.k]=+r.value;r.nextElementSibling.value=r.value;schedulePaint();});
   r.addEventListener("change",()=>{if(IMG.raf){cancelAnimationFrame(IMG.raf);IMG.raf=0;}paintPreview();refreshShirtPreview();});
 });
-$("adj-reset").onclick=()=>{IMG.adj={...ADJ0};setAdjUI();paintPreview();refreshShirtPreview();};
+$("adj-reset").onclick=()=>{IMG.adj={...ADJ0};IMG.cx=IMG.cy=.5;setAdjUI();paintPreview();refreshShirtPreview();};
+
+/* drag the preview to move the crop */
+let pan=null;
+function panBy(dxCss,dyCss){
+  const {cw,ch}=cropRect();
+  const s=Math.min(preview.clientWidth/cw,preview.clientHeight/ch)||1;   // css px per photo px (object-fit:contain)
+  IMG.cx-=dxCss/s/IMG.w;IMG.cy-=dyCss/s/IMG.h;
+  schedulePaint();
+}
+preview.addEventListener("pointerdown",e=>{
+  if(!IMG.gray||e.button!==0) return;
+  pan={x:e.clientX,y:e.clientY};preview.setPointerCapture(e.pointerId);preview.classList.add("panning");
+});
+preview.addEventListener("pointermove",e=>{
+  if(!pan) return;
+  panBy(e.clientX-pan.x,e.clientY-pan.y);pan={x:e.clientX,y:e.clientY};
+});
+const endPan=()=>{
+  if(!pan) return;
+  pan=null;preview.classList.remove("panning");
+  if(IMG.raf){cancelAnimationFrame(IMG.raf);IMG.raf=0;}
+  paintPreview();refreshShirtPreview();
+};
+preview.addEventListener("pointerup",endPan);preview.addEventListener("pointercancel",endPan);
+preview.addEventListener("keydown",e=>{
+  const d={ArrowLeft:[1,0],ArrowRight:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];
+  if(!d||!IMG.gray) return;
+  e.preventDefault();
+  const step=preview.clientWidth*.05;panBy(d[0]*step,d[1]*step);
+  clearTimeout(IMG.keyTimer);IMG.keyTimer=setTimeout(refreshShirtPreview,250);
+});
 
 async function setFile(f){
   if(!f) return;
@@ -544,7 +599,7 @@ async function setFile(f){
   pctx.drawImage(img,0,0,w,h);
   const src=pctx.getImageData(0,0,w,h).data, gray=new Uint8ClampedArray(w*h);
   for(let i=0,j=0;i<gray.length;i++,j+=4) gray[i]=.299*src[j]+.587*src[j+1]+.114*src[j+2];
-  Object.assign(IMG,{gray,w,h,adj:{...ADJ0}});
+  Object.assign(IMG,{gray,w,h,adj:{...ADJ0},cx:.5,cy:.5,ar:selAspect()});
   setAdjUI();paintPreview();
   S.file=f;
   $("editor").hidden=false;
