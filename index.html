@@ -146,6 +146,9 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 .grid.admin .cell{cursor:inherit}
 .grid.admin.dragging{cursor:grabbing}
 .photo.lifted{opacity:.3}
+.adm-sel{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;background:var(--bg);border:2px solid var(--sel);border-radius:10px;padding:10px 12px}
+.adm-sel span{min-width:0;overflow-wrap:anywhere}
+.btn.danger{background:var(--bad);color:#fff;padding:8px 14px;font-size:14px;flex:none}
 @media (prefers-reduced-motion:no-preference){.sel{transition:background-color .12s}}
 </style>
 <style>body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
@@ -242,6 +245,10 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
       </div>
       <p class="hint">Drag a photo on the shirt to move it. To move one to the other side, select it (on the shirt or below), switch side, then tap the square for its top-left corner. Sizes can't be changed.</p>
       <p class="msg" id="adm-msg" role="status"></p>
+      <div class="adm-sel" id="adm-sel" hidden>
+        <span id="adm-sel-text"></span>
+        <button type="button" class="btn danger" id="adm-remove">Remove</button>
+      </div>
       <div class="adm-head">
         <span class="adm-stats" id="adm-stats"></span>
         <button type="button" class="btn ghost" id="adm-copy">Copy all emails</button>
@@ -669,7 +676,32 @@ function renderAdminList(){
     li.append(b,mail);ul.appendChild(li);
   }
   $("adm-stats").textContent=`${A.rows.length} reservation${A.rows.length===1?"":"s"} · ${spaces} spaces · ${gbp(spaces*PRICE)}`;
+  const sel=A.rows.find(r=>r.id===A.pick);
+  $("adm-sel").hidden=!sel;
+  if(sel) $("adm-sel-text").textContent=`Selected: ${sel.full_name||"(no name)"}, ${sideName(sel.side)} ${rectLabel(sel)}`;
 }
+$("adm-remove").onclick=async()=>{
+  const row=A.rows.find(r=>r.id===A.pick); if(!row||A.busy) return;
+  const where=`${sideName(row.side)} ${rectLabel(row)}`;
+  if(!confirm(`Remove ${row.full_name||"this"}'s photo from ${where}?\n\nTheir squares become free again and the photo is deleted. This can't be undone.`)) return;
+  A.busy=true;$("adm-remove").disabled=true;admSay("Removing…");
+  const {data:path,error}=await S.sb.rpc("admin_delete",{p_id:row.id});
+  let fileNote="";
+  if(!error&&path){
+    const rm=await S.sb.storage.from("photos").remove([path]);
+    if(rm.error||!rm.data?.length) fileNote=" The photo file couldn't be deleted from storage, but it's no longer on the shirt.";
+  }
+  A.busy=false;$("adm-remove").disabled=false;
+  if(error){
+    const t=error.message||"";
+    admSay(/admin_delete|schema cache/.test(t)?"Removing isn't set up yet. Run supabase/admin-remove.sql in Supabase first."
+      :/not_admin|JWT|jwt/.test(t)?"You're no longer signed in as the organiser. Sign in again."
+      :/not_found/.test(t)?"That reservation was already removed."
+      :"The removal didn't save. Check your connection and try again.","err");
+  } else {A.pick=null;admSay(`Removed ${row.full_name?row.full_name+"'s":"the"} photo from ${where}. Those squares are free again.${fileNote}`,"ok");}
+  try{await loadSpaces();await loadAdmin();}catch(e){}
+  render();renderAdminList();
+};
 async function enterAdmin(silent){
   try{await loadAdmin();}
   catch(err){
