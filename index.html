@@ -664,7 +664,8 @@ async function moveTo(sp,side,c,r){
 async function loadAdmin(){
   const {data,error}=await S.sb.rpc("admin_list");
   if(error) throw error;
-  A.rows=data||[];
+  /* Supabase may return each row bare ({id,...}) or wrapped ({admin_list:{id,...}}); accept both */
+  A.rows=(data||[]).map(x=>x&&typeof x==="object"&&x.admin_list?x.admin_list:x).filter(x=>x&&x.id);
 }
 function renderAdminList(){
   const ul=$("adm-list");ul.innerHTML="";
@@ -688,7 +689,7 @@ function renderAdminList(){
     li.append(b,mail);ul.appendChild(li);
   }
   $("adm-stats").textContent=`${A.rows.length} reservation${A.rows.length===1?"":"s"} · ${spaces} spaces · ${gbp(spaces*PRICE)}`;
-  const sel=A.rows.find(r=>r.id===A.pick);
+  const sel=A.rows.find(r=>r.id===A.pick)||(A.pick&&byId(A.pick));   // fall back to the shirt data
   $("adm-sel").hidden=!sel;
   if(sel) $("adm-sel-text").textContent=`Selected: ${sel.full_name||"(no name)"}, ${sideName(sel.side)} ${rectLabel(sel)}`;
 }
@@ -747,7 +748,7 @@ document.querySelectorAll("[data-export]").forEach(b=>b.onclick=async()=>{
   btns.forEach(x=>x.disabled=false);
 });
 $("adm-remove").onclick=async()=>{
-  const row=A.rows.find(r=>r.id===A.pick); if(!row||A.busy) return;
+  const row=A.rows.find(r=>r.id===A.pick)||(A.pick&&byId(A.pick)); if(!row||A.busy) return;
   const where=`${sideName(row.side)} ${rectLabel(row)}`;
   if(!confirm(`Remove ${row.full_name||"this"}'s photo from ${where}?\n\nTheir squares become free again and the photo is deleted. This can't be undone.`)) return;
   A.busy=true;$("adm-remove").disabled=true;admSay("Removing…");
