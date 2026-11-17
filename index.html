@@ -15,8 +15,8 @@
   --display:"Archivo","Arial Black",system-ui,sans-serif;
   --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-  /* photos are shown in black and white */
-  --gold:grayscale(1);
+  /* photos are shown in full colour */
+  --gold:none;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0f131c; --surface:#171c28; --fg:#e9ecf3; --muted:#9aa3b8; --line:#2a3142;
@@ -63,6 +63,22 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
 .sel.bad{border-color:var(--bad);background-color:rgba(229,72,77,.35)}
 .sel.has-img{background-color:transparent;filter:var(--gold)}
 #thumb[style*="url("],.editor canvas{filter:var(--gold)}
+/* right-sleeve photo: wearer's right = viewer's left on the front, viewer's right on the back.
+   Square x 33..71, y 96..134 in the viewBox (mirrored to x 329..367 on the back). */
+.sleeve{position:absolute;top:17.961%;width:9.5%;height:9.223%;padding:0;border:1px dashed rgba(255,255,255,.4);border-radius:2px;
+  background:var(--print) center/cover no-repeat;color:rgba(255,255,255,.6);font:500 clamp(7px,.8vw,10px)/1.1 var(--mono);
+  display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;filter:var(--gold)}
+.sleeve.l{left:8.25%} .sleeve.r{left:82.25%}
+.sleeve.has-img{border:0;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.sleeve.active{outline:3px solid var(--sel);outline-offset:2px}
+.sleeve:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
+.grid.dim{opacity:.35}
+.panel[data-mode="sleeve"] .only-grid,.panel:not([data-mode="sleeve"]) .only-sleeve{display:none}
+.bid-row{display:flex;align-items:center;gap:8px;font:600 18px var(--mono)}
+.adm-bid .btn.danger{padding:6px 10px;font-size:13px}
+.adm-bid a.thumb{display:block;width:40px;height:40px;border-radius:6px;flex:none}
+.adm-bid .meta{flex:1;min-width:0;display:flex;flex-direction:column;font-size:14px}
+.adm-bid.lead .meta b::after{content:" · leading";color:var(--ok);font-weight:500}
 
 .legend{display:flex;flex-wrap:wrap;gap:10px 28px;justify-content:center;font-size:16px;color:var(--fg)}
 .legend span{display:inline-flex;align-items:center;gap:8px}
@@ -80,8 +96,8 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
 .readout{font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
 .readout.empty{color:var(--muted)}
 .readout.bad{border-color:var(--bad);color:var(--bad)}
-input[type=text],input[type=email],input[type=password]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
-input[type=text]:focus-visible,input[type=email]:focus-visible,input[type=password]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px;border-color:transparent}
+input[type=text],input[type=email],input[type=password],input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+input[type=text]:focus-visible,input[type=email]:focus-visible,input[type=password]:focus-visible,input[type=number]:focus-visible{outline:2px solid var(--shirt);outline-offset:1px;border-color:transparent}
 .drop{border:1.5px dashed var(--line);border-radius:10px;padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;background:var(--bg)}
 .drop:hover,.drop.over{border-color:var(--fg)}
 .drop:focus-within{outline:2px solid var(--shirt);outline-offset:1px}
@@ -139,7 +155,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 .adm-pick:hover{background:var(--bg)}
 .adm-pick[aria-pressed="true"]{background:var(--bg);box-shadow:inset 0 0 0 2px var(--sel)}
 .adm-pick:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
-.adm-pick .thumb{width:40px;height:40px;border-radius:6px;filter:grayscale(1)}
+.adm-pick .thumb{width:40px;height:40px;border-radius:6px}
 .adm-pick .meta{min-width:0;display:flex;flex-direction:column;font-size:14px}
 .adm-pick .meta b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adm-mail{font-size:13px;color:var(--fg);overflow-wrap:anywhere;max-width:45%;text-align:right}
@@ -171,6 +187,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
       <div class="tabs" role="tablist">
         <button id="tab-front" role="tab" aria-selected="true" data-side="front">Front<span class="n" id="n-front"></span></button>
         <button id="tab-back" role="tab" aria-selected="false" data-side="back">Back<span class="n" id="n-back"></span></button>
+        <button id="tab-sleeve" role="tab" aria-selected="false" data-side="sleeve">Right sleeve<span class="n" id="n-sleeve"></span></button>
       </div>
       <div class="shirt">
         <svg viewBox="0 22 400 412" aria-hidden="true">
@@ -178,19 +195,27 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
           <path class="seam" id="collar-path" d=""/>
         </svg>
         <div class="grid" id="grid" role="grid" aria-label="Photo spaces"></div>
+        <button type="button" class="sleeve l" id="sleeve" aria-label="Right sleeve photo, auctioned to the highest bidder">Right<br>sleeve</button>
       </div>
-      <div class="legend" aria-live="polite">
+      <p class="legend" id="sleeve-note" hidden>The right sleeve holds one photo, auctioned to the highest bidder.</p>
+      <div class="legend" id="grid-legend" aria-live="polite">
         <span><i class="sw free"></i>Free <b id="lg-free">48</b></span>
         <span><i class="sw taken"></i>Taken <b id="lg-taken">0</b></span>
         <span><i class="sw yours"></i>Your selection <b id="lg-sel">0</b></span>
       </div>
     </section>
 
-    <aside class="panel">
-      <h2>Reserve your spaces</h2>
+    <aside class="panel" id="book-panel">
+      <h2 id="panel-title">Reserve your spaces</h2>
       <p class="banner" id="banner" hidden></p>
 
-      <div class="step">
+      <div class="step only-sleeve">
+        <label for="bid">1. Your bid <small class="hint" id="bid-hint">(whole pounds)</small></label>
+        <div class="readout" id="sleeve-readout">Loading the current bid…</div>
+        <div class="bid-row"><span aria-hidden="true">£</span><input type="number" id="bid" min="1" step="1" inputmode="numeric" placeholder="1"></div>
+      </div>
+
+      <div class="step only-grid">
         <span class="lbl">1. Choose spaces <small>(drag on the shirt; tap a square, then Shift-tap or drag to stretch)</small></span>
         <div class="readout empty" id="readout">No spaces selected</div>
       </div>
@@ -204,7 +229,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
         </label>
         <div class="editor" id="editor" hidden>
           <canvas id="preview" tabindex="0" aria-label="Crop preview of your photo. Drag, or use the arrow keys, to choose what shows."></canvas>
-          <p class="hint">Drag the photo to choose what shows. The crop matches the shape of your spaces.</p>
+          <p class="hint">Drag the photo to choose what shows. The crop matches the shape of the space it will fill.</p>
           <div class="adj">
             <label for="adj-zoom">Zoom</label><input type="range" id="adj-zoom" data-k="zoom" min="100" max="400" value="100"><output for="adj-zoom">100</output>
             <label for="adj-brightness">Brightness</label><input type="range" id="adj-brightness" data-k="brightness" min="-100" max="100" value="0"><output for="adj-brightness">0</output>
@@ -213,7 +238,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
             <label for="adj-sharpness">Sharpness</label><input type="range" id="adj-sharpness" data-k="sharpness" min="0" max="100" value="0"><output for="adj-sharpness">0</output>
           </div>
           <div class="row">
-            <span class="hint">Photos are printed in black and white.</span>
+            <span class="hint">Adjust the look, then reserve.</span>
             <button type="button" class="btn ghost" id="adj-reset">Reset</button>
           </div>
         </div>
@@ -227,7 +252,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
       </div>
 
       <div class="step">
-        <span class="lbl">4. Agree to pay <small>(£5 per space, by bank transfer)</small></span>
+        <span class="lbl">4. Agree to pay <small class="only-grid">(£5 per space, by bank transfer)</small><small class="only-sleeve">(only if yours is the winning bid, by bank transfer)</small></span>
         <dl class="bank" aria-label="Bank details for payment">
           <div><dt>Account name</dt><dd>OXFORD UNIVERSITY BADMINTON CLUB</dd></div>
           <div><dt>Sort code</dt><dd>20-65-20</dd></div>
@@ -272,6 +297,11 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
           <button type="button" class="btn ghost" data-export="back">Back</button>
           <button type="button" class="btn ghost" data-export="both">Both sides</button>
         </div>
+      </div>
+      <div class="adm-export">
+        <span class="lbl">Right sleeve bids <small>(highest first; removing the leading bid makes the next highest lead)</small></span>
+        <span class="adm-stats" id="adm-bid-stats"></span>
+        <ul class="adm-list" id="adm-bids"></ul>
       </div>
       <div class="adm-head">
         <span class="adm-stats" id="adm-stats"></span>
@@ -321,7 +351,16 @@ const selKey=s=>s?[s.side,s.c,s.r,s.w,s.h].join(":"):"";
 const photoUrl=p=>S.sb?S.sb.storage.from("photos").getPublicUrl(p).data.publicUrl:"";
 const EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 /* admin state: pick = selected reservation id, drag = active drag, ghost = where it would land */
-const A={on:false,rows:[],pick:null,drag:null,ghost:null,busy:false};
+const A={on:false,rows:[],pick:null,drag:null,ghost:null,busy:false,bids:[],bidsErr:false};
+
+/* right-sleeve auction: S.side==="sleeve" switches the form to bidding */
+const BANK="OXFORD UNIVERSITY BADMINTON CLUB, sort code 20-65-20, account 53752402";
+S.sleeve={min_bid:1,bids:0,amount:null,photo_path:null};S.sleeveOk=false;
+const isSleeve=()=>S.side==="sleeve";
+const minBid=()=>S.sleeve.amount!=null?S.sleeve.amount+1:S.sleeve.min_bid;
+const bidVal=()=>{const v=$("bid").value.trim();return /^\d{1,6}$/.test(v)?+v:NaN;};
+const agreeKey=()=>isSleeve()?"sleeve:"+bidVal():selKey(S.sel);
+const unwrap=(x,k)=>x&&typeof x==="object"&&x[k]&&typeof x[k]==="object"?x[k]:x;   // PostgREST may wrap jsonb rows
 const byId=id=>S.spaces.find(p=>p.id===id);
 
 function occupied(side,exceptId){
@@ -350,13 +389,33 @@ function buildCells(){
     grid.appendChild(b);
   }
 }
+function renderSleeve(view){
+  const sl=$("sleeve"), mine=isSleeve()&&!A.on&&S.fileUrl;
+  const url=mine?S.fileUrl:S.sleeve.photo_path?photoUrl(S.sleeve.photo_path):"";
+  sl.className="sleeve "+(view==="back"?"r":"l")+(url?" has-img":"")+(isSleeve()?" active":"");
+  sl.style.backgroundImage=url?`url("${url}")`:"";
+  sl.innerHTML=url?"":"Right<br>sleeve";
+  $("n-sleeve").textContent=S.sleeve.amount!=null?gbp(S.sleeve.amount):S.sleeveOk?"no bids":"";
+  $("book-panel").dataset.mode=isSleeve()?"sleeve":"grid";
+  $("panel-title").textContent=isSleeve()?"Bid for the right sleeve":"Reserve your spaces";
+  $("grid-legend").hidden=isSleeve();$("sleeve-note").hidden=!isSleeve();
+  grid.classList.toggle("dim",isSleeve());grid.inert=isSleeve();
+  const ro=$("sleeve-readout");
+  ro.className="readout"+(S.sleeveOk?"":" empty");
+  ro.textContent=!S.sleeveOk?"Sleeve bidding isn't open yet."
+    :S.sleeve.amount!=null?`Highest bid ${gbp(S.sleeve.amount)} · ${S.sleeve.bids} bid${S.sleeve.bids===1?"":"s"}`
+    :`No bids yet · opening bid ${gbp(S.sleeve.min_bid)}`;
+  $("bid-hint").textContent=`(whole pounds, at least ${gbp(minBid())})`;
+  $("bid").min=minBid();$("bid").placeholder=minBid();
+}
 function render(){
-  const side=S.side;
-  $("shirt-path").setAttribute("d",side==="front"?SHIRT_FRONT:SHIRT_BACK);
-  $("collar-path").setAttribute("d",side==="front"?COLLAR_FRONT:COLLAR_BACK);
+  const side=S.side, view=side==="back"?"back":"front";   // the sleeve tab shows the front of the shirt
+  $("shirt-path").setAttribute("d",view==="front"?SHIRT_FRONT:SHIRT_BACK);
+  $("collar-path").setAttribute("d",view==="front"?COLLAR_FRONT:COLLAR_BACK);
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.side===side));
   for(const s of ["front","back"]) $("n-"+s).textContent=(COLS*ROWS-occupied(s).size)+" free";
-  const occ=occupied(side);
+  renderSleeve(view);
+  const occ=occupied(view);
   $("lg-free").textContent=COLS*ROWS-occ.size;
   $("lg-taken").textContent=occ.size;
   $("lg-sel").textContent=S.sel&&S.sel.side===side?S.sel.w*S.sel.h:0;
@@ -366,7 +425,7 @@ function render(){
     b.setAttribute("aria-label","Space "+label(+b.dataset.c,+b.dataset.r)+(t?", taken":", free"));
   });
   grid.querySelectorAll(".photo,.sel").forEach(e=>e.remove());
-  for(const p of S.spaces) if(p.side===side){
+  for(const p of S.spaces) if(p.side===view){
     const d=document.createElement("div");
     d.className="photo"+(A.on&&p.id===A.pick?" mine":"")+(A.on&&A.ghost&&A.ghost.id===p.id?" lifted":"");
     d.style.gridArea=`${p.r+1}/${p.c+1}/span ${p.h}/span ${p.w}`;
@@ -401,7 +460,16 @@ function render(){
 }
 function renderAgree(){
   const box=$("agree"),wrap=$("agree-wrap"),txt=$("agree-text");
-  if(selKey(S.sel)!==S.agreedKey){box.checked=false;S.agreedKey="";}
+  if(agreeKey()!==S.agreedKey){box.checked=false;S.agreedKey="";}
+  if(isSleeve()){
+    const v=bidVal();
+    if(!(v>=minBid())){box.disabled=true;wrap.classList.add("off");txt.textContent=`Enter a bid of at least ${gbp(minBid())} to see the agreement.`;return;}
+    box.disabled=false;wrap.classList.remove("off");txt.innerHTML="";
+    txt.append("If mine is the highest bid when the auction closes, I agree to pay ");
+    const b=document.createElement("b");b.textContent=gbp(v);txt.append(b);
+    txt.append(` by bank transfer to ${BANK}. I understand that a higher bid will replace mine.`);
+    return;
+  }
   if(!S.sel){box.disabled=true;wrap.classList.add("off");txt.textContent="Select your spaces to see the price.";return;}
   const n=S.sel.w*S.sel.h;
   box.disabled=false;wrap.classList.remove("off");txt.innerHTML="";
@@ -414,11 +482,28 @@ function validate(){
   const fullOk=/\S+\s+\S+/.test(name);
   const selOk=S.sel&&!clashes(S.sel,S.sel.side);
   const emailOk=EMAIL_RE.test($("email").value.trim());
-  const agreeOk=$("agree").checked&&S.agreedKey===selKey(S.sel);
+  const agreeOk=$("agree").checked&&S.agreedKey===agreeKey();
   const consentOk=$("consent").checked;
+  const m=$("msg");
+  if(isSleeve()){
+    const v=bidVal(), bidOk=S.sleeveOk&&v>=minBid()&&v<=100000;
+    $("submit").disabled=S.busy||!S.ready||!bidOk||!S.file||!fullOk||!emailOk||!agreeOk||!consentOk;
+    $("submit").textContent=v>=minBid()?"Place bid of "+gbp(v):"Place bid";
+    if(S.busy||m.dataset.sticky) return;
+    m.className="msg";
+    if(!S.ready) m.textContent="";
+    else if(!S.sleeveOk) m.textContent="Sleeve bidding isn't open yet.";
+    else if(!bidOk) m.textContent=`Enter a bid of at least ${gbp(minBid())}, in whole pounds.`;
+    else if(!S.file) m.textContent="Now add your photo.";
+    else if(!fullOk) m.textContent="Enter your full name (first and last).";
+    else if(!emailOk) m.textContent="Enter your email so the organiser can contact you.";
+    else if(!agreeOk) m.textContent="Tick the box to agree to pay if you win.";
+    else if(!consentOk) m.textContent="Tick the box to agree to the photo rules.";
+    else m.textContent="Ready to bid.";
+    return;
+  }
   $("submit").disabled=S.busy||!S.ready||!selOk||!S.file||!fullOk||!emailOk||!agreeOk||!consentOk;
   $("submit").textContent=S.sel?"Reserve for "+gbp(S.sel.w*S.sel.h*PRICE):"Reserve spaces";
-  const m=$("msg");
   if(S.busy||m.dataset.sticky) return;
   m.className="msg";
   if(!S.ready) m.textContent="";
@@ -472,12 +557,12 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{S.side=b.dat
 
 /* ---------- photo ---------- */
 const EXT={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"};
-/* Uploaded photos are converted to black and white on a canvas; the sliders adjust that
+/* Uploaded photos are drawn on a canvas in colour; the sliders adjust that
    canvas live and the canvas itself (what you see) is what gets uploaded, as a JPEG. */
 const MAX_PX=2000, ADJ0={zoom:100,brightness:0,contrast:-50,midtones:0,sharpness:0};
 /* cx,cy: centre of the crop as a fraction of the photo. ar: crop aspect (width/height of the chosen spaces). */
-const IMG={gray:null,w:0,h:0,adj:{...ADJ0},token:0,raf:0,cx:.5,cy:.5,ar:1,arTimer:0};
-const selAspect=()=>S.sel?S.sel.w/S.sel.h:1;
+const IMG={px:null,w:0,h:0,adj:{...ADJ0},token:0,raf:0,cx:.5,cy:.5,ar:1,arTimer:0};
+const selAspect=()=>isSleeve()?1:S.sel?S.sel.w/S.sel.h:1;   // the sleeve space is square
 function cropRect(){
   const {w:W,h:H,ar}=IMG, z=IMG.adj.zoom/100;
   let cw=W/H>ar?H*ar:W, ch=W/H>ar?H:W/ar;
@@ -489,7 +574,7 @@ function cropRect(){
 }
 /* Called from render(): when the chosen spaces change shape, re-crop to the new shape */
 function syncCropAspect(){
-  if(!IMG.gray) return;
+  if(!IMG.px) return;
   const ar=selAspect(); if(Math.abs(ar-IMG.ar)<1e-9) return;
   IMG.ar=ar;clearTimeout(IMG.arTimer);
   IMG.arTimer=setTimeout(()=>{paintPreview();refreshShirtPreview();},120);
@@ -514,23 +599,24 @@ function toneLut(a){
   return t;
 }
 function paintPreview(){
-  const {gray,adj}=IMG; if(!gray) return;
+  const {px,adj}=IMG; if(!px) return;
   const {x:x0,y:y0,cw:w,ch:h}=cropRect(), W=IMG.w;
   if(preview.width!==w||preview.height!==h){preview.width=w;preview.height=h;}
-  const t=toneLut(adj), n=w*h;
-  let g=new Uint8ClampedArray(n);
-  for(let y=0,i=0;y<h;y++){const o=(y0+y)*W+x0;for(let x=0;x<w;x++,i++) g[i]=t[gray[o+x]];}
-  if(adj.sharpness>0){                                       // unsharp mask, 3x3 box blur
-    const amt=adj.sharpness/40, s=new Uint8ClampedArray(g);
-    for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
-      const i=y*w+x;
-      const blur=(g[i-w-1]+g[i-w]+g[i-w+1]+g[i-1]+g[i]+g[i+1]+g[i+w-1]+g[i+w]+g[i+w+1])/9;
-      s[i]=g[i]+amt*(g[i]-blur);
-    }
-    g=s;
+  const t=toneLut(adj);
+  const out=pctx.createImageData(w,h); let d=out.data;
+  for(let y=0,j=0;y<h;y++){
+    let o=((y0+y)*W+x0)*4;
+    for(let x=0;x<w;x++,j+=4,o+=4){d[j]=t[px[o]];d[j+1]=t[px[o+1]];d[j+2]=t[px[o+2]];d[j+3]=255;}
   }
-  const out=pctx.createImageData(w,h), d=out.data;
-  for(let i=0,j=0;i<n;i++,j+=4){d[j]=d[j+1]=d[j+2]=g[i];d[j+3]=255;}
+  if(adj.sharpness>0){                                       // unsharp mask per colour channel, 3x3 box blur
+    const amt=adj.sharpness/40, s=new Uint8ClampedArray(d), R=w*4;
+    for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++) for(let ch=0;ch<3;ch++){
+      const i=(y*w+x)*4+ch;
+      const blur=(d[i-R-4]+d[i-R]+d[i-R+4]+d[i-4]+d[i]+d[i+4]+d[i+R-4]+d[i+R]+d[i+R+4])/9;
+      s[i]=d[i]+amt*(d[i]-blur);
+    }
+    out.data.set(s);
+  }
   pctx.putImageData(out,0,0);
 }
 function schedulePaint(){if(!IMG.raf) IMG.raf=requestAnimationFrame(()=>{IMG.raf=0;paintPreview();});}
@@ -561,7 +647,7 @@ function panBy(dxCss,dyCss){
   schedulePaint();
 }
 preview.addEventListener("pointerdown",e=>{
-  if(!IMG.gray||e.button!==0) return;
+  if(!IMG.px||e.button!==0) return;
   pan={x:e.clientX,y:e.clientY};preview.setPointerCapture(e.pointerId);preview.classList.add("panning");
 });
 preview.addEventListener("pointermove",e=>{
@@ -577,7 +663,7 @@ const endPan=()=>{
 preview.addEventListener("pointerup",endPan);preview.addEventListener("pointercancel",endPan);
 preview.addEventListener("keydown",e=>{
   const d={ArrowLeft:[1,0],ArrowRight:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];
-  if(!d||!IMG.gray) return;
+  if(!d||!IMG.px) return;
   e.preventDefault();
   const step=preview.clientWidth*.05;panBy(d[0]*step,d[1]*step);
   clearTimeout(IMG.keyTimer);IMG.keyTimer=setTimeout(refreshShirtPreview,250);
@@ -597,9 +683,8 @@ async function setFile(f){
   preview.width=w;preview.height=h;
   pctx.fillStyle="#fff";pctx.fillRect(0,0,w,h);               // flatten transparent PNGs onto white
   pctx.drawImage(img,0,0,w,h);
-  const src=pctx.getImageData(0,0,w,h).data, gray=new Uint8ClampedArray(w*h);
-  for(let i=0,j=0;i<gray.length;i++,j+=4) gray[i]=.299*src[j]+.587*src[j+1]+.114*src[j+2];
-  Object.assign(IMG,{gray,w,h,adj:{...ADJ0},cx:.5,cy:.5,ar:selAspect()});
+  const px=pctx.getImageData(0,0,w,h).data;                   // full colour RGBA
+  Object.assign(IMG,{px,w,h,adj:{...ADJ0},cx:.5,cy:.5,ar:selAspect()});
   setAdjUI();paintPreview();
   S.file=f;
   $("editor").hidden=false;
@@ -616,7 +701,9 @@ drop.addEventListener("drop",e=>setFile(e.dataTransfer.files[0]));
 $("fullname").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
 $("email").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
 $("consent").addEventListener("change",()=>{delete $("msg").dataset.sticky;validate();});
-$("agree").addEventListener("change",e=>{S.agreedKey=e.target.checked?selKey(S.sel):"";delete $("msg").dataset.sticky;validate();});
+$("agree").addEventListener("change",e=>{S.agreedKey=e.target.checked?agreeKey():"";delete $("msg").dataset.sticky;validate();});
+$("bid").addEventListener("input",()=>{delete $("msg").dataset.sticky;renderAgree();validate();});
+$("sleeve").onclick=()=>{S.side="sleeve";S.sel=null;S.anchor=null;render();};
 
 /* ---------- data ---------- */
 async function loadSpaces(){
@@ -624,10 +711,65 @@ async function loadSpaces(){
   if(error) throw error;
   S.spaces=data||[];
 }
+async function loadSleeve(){
+  const {data,error}=await S.sb.rpc("get_sleeve");
+  if(error){S.sleeveOk=false;throw error;}
+  const d=unwrap(data,"get_sleeve")||{};
+  S.sleeve={min_bid:d.min_bid??1,bids:d.bids??0,amount:d.amount??null,photo_path:d.photo_path??null};
+  S.sleeveOk=true;
+}
+function resetForm(){
+  S.sel=null;S.anchor=null;S.file=null;S.agreedKey="";$("consent").checked=false;$("bid").value="";
+  if(S.fileUrl) URL.revokeObjectURL(S.fileUrl);S.fileUrl=null;
+  IMG.token++;IMG.px=null;$("editor").hidden=true;
+  $("photo").value="";$("thumb").style.backgroundImage="";$("drop-title").textContent="Choose a photo";$("drop-sub").textContent="or drop it here";
+}
+async function uploadPhoto(){
+  if(IMG.raf){cancelAnimationFrame(IMG.raf);IMG.raf=0;}
+  paintPreview();
+  const blob=await canvasBlob();
+  const path=uuid()+".jpg";
+  const up=await S.sb.storage.from("photos").upload(path,blob,{contentType:"image/jpeg",upsert:false});
+  if(up.error) throw {stage:"upload",...up.error};
+  return path;
+}
+async function submitBid(){
+  const name=$("fullname").value.trim().replace(/\s+/g," ");
+  const email=$("email").value.trim(), amount=bidVal();
+  const terms=$("agree-text").textContent+" "+$("consent-text").textContent;
+  S.busy=true;validate();say("Checking the current highest bid…");
+  const tooLow=()=>`Someone has just bid ${gbp(S.sleeve.amount)}. Your bid needs to be at least ${gbp(minBid())}.`;
+  try{
+    await loadSleeve();
+    if(amount<minBid()){S.busy=false;render();say(tooLow(),"err",true);return;}
+    say("Uploading your photo…");
+    const path=await uploadPhoto();
+    say("Placing your bid…");
+    const {error}=await S.sb.rpc("place_sleeve_bid",{p_amount:amount,p_name:name,p_email:email,p_photo_path:path,p_terms:terms,p_agreed:true});
+    if(error) throw error;
+    await loadSleeve();
+    resetForm();S.busy=false;render();
+    say(`Your bid of ${gbp(amount)} is now the highest. If you're still the highest bidder when the auction closes, we'll contact you at ${email}.`,"ok",true);
+  }catch(err){
+    S.busy=false;
+    const t=String(err&&(err.message||err.error)||"");
+    if(/too_low/.test(t)) {try{await loadSleeve();}catch(e){}}
+    const txt=/too_low/.test(t)?tooLow()
+      :/bad_name/.test(t)?"Enter your full name (first and last)."
+      :/bad_email/.test(t)?"Check your email address."
+      :/place_sleeve_bid|schema cache/.test(t)?"Sleeve bidding isn't open yet. Please try again later."
+      :/exceed|too large|413/i.test(t)?"That photo is too large to upload. Try one under 20 MB."
+      :t==="encode"?"Your photo couldn't be prepared for upload. Try choosing it again."
+      :/mime|type/i.test(t)&&err.stage==="upload"?"That image type can't be uploaded. Try a JPG or PNG."
+      :"Your bid didn't go through. Check your connection and try again.";
+    render();say(txt,"err",true);
+  }
+}
 const uuid=()=>crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(+c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>+c/4).toString(16));
 
 async function submit(){
   if($("submit").disabled) return;
+  if(isSleeve()) return submitBid();
   const name=$("fullname").value.trim().replace(/\s+/g," ");
   const email=$("email").value.trim();
   const sel={...S.sel}, amount=sel.w*sel.h*PRICE, terms=$("agree-text").textContent+" "+$("consent-text").textContent;
@@ -636,22 +778,13 @@ async function submit(){
     await loadSpaces();
     if(clashes(sel,sel.side)){S.busy=false;render();say("Someone just took one of those spaces. Pick another rectangle.","err",true);return;}
     say("Uploading your photo…");
-    if(IMG.raf){cancelAnimationFrame(IMG.raf);IMG.raf=0;}
-    paintPreview();
-    const bw=await canvasBlob();
-    const path=uuid()+".jpg";
-    const up=await S.sb.storage.from("photos").upload(path,bw,{contentType:"image/jpeg",upsert:false});
-    if(up.error) throw {stage:"upload",...up.error};
+    const path=await uploadPhoto();
     say("Saving your reservation…");
     const {error}=await S.sb.rpc("reserve_spaces",{p_side:sel.side,p_c:sel.c,p_r:sel.r,p_w:sel.w,p_h:sel.h,p_name:name,p_photo_path:path,p_terms:terms,p_agreed:true});
     if(error) throw error;
     const em=await S.sb.rpc("set_reservation_email",{p_photo_path:path,p_email:email});
     await loadSpaces();
-    S.sel=null;S.anchor=null;S.file=null;S.agreedKey="";$("consent").checked=false;
-    if(S.fileUrl) URL.revokeObjectURL(S.fileUrl);S.fileUrl=null;
-    IMG.token++;IMG.gray=null;$("editor").hidden=true;
-    $("photo").value="";$("thumb").style.backgroundImage="";$("drop-title").textContent="Choose a photo";$("drop-sub").textContent="or drop it here";
-    S.busy=false;render();
+    resetForm();S.busy=false;render();
     if(em.error) say(`Reserved ${sel.side} ${rectLabel(sel)} for ${name}. You've agreed to pay ${gbp(amount)}. Your email didn't save, so please send it to the organiser.`,"ok",true);
     else say(`Reserved ${sel.side} ${rectLabel(sel)} for ${name}. You've agreed to pay ${gbp(amount)}. We'll contact you at ${email}.`,"ok",true);
   }catch(err){
@@ -790,9 +923,6 @@ async function buildLayout(which){
       catch(e){failed++;}
     }
   }
-  const im=ctx.getImageData(0,0,cv.width,cv.height), d=im.data;   // black and white, keeping transparency
-  for(let j=0;j<d.length;j+=4){if(d[j+3]){const g=.299*d[j]+.587*d[j+1]+.114*d[j+2];d[j]=d[j+1]=d[j+2]=g;}}
-  ctx.putImageData(im,0,0);
   const blob=await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("encode")),"image/png"));
   return {blob,drawn,failed,width:cv.width,height:cv.height};
 }
@@ -835,6 +965,55 @@ $("adm-remove").onclick=async()=>{
   try{await loadSpaces();await loadAdmin();}catch(e){}
   render();renderAdminList();
 };
+/* sleeve bids (admin) */
+async function loadBids(){
+  const {data,error}=await S.sb.rpc("admin_sleeve_list");
+  if(error){A.bids=[];A.bidsErr=true;return;}
+  A.bidsErr=false;
+  A.bids=(data||[]).map(x=>unwrap(x,"admin_sleeve_list")).filter(x=>x&&x.id);
+}
+const when=t=>t?new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+function renderBids(){
+  const ul=$("adm-bids");ul.innerHTML="";
+  $("adm-bid-stats").textContent=A.bidsErr?"Sleeve bidding isn't set up yet. Run supabase/sleeve-auction.sql in Supabase."
+    :A.bids.length?`${A.bids.length} bid${A.bids.length===1?"":"s"} · leading ${gbp(A.bids[0].amount_gbp)} by ${A.bids[0].full_name}`:"No bids yet.";
+  A.bids.forEach((bid,i)=>{
+    const li=document.createElement("li");li.className="adm-bid"+(i===0?" lead":"");
+    const th=document.createElement("a");th.className="thumb";th.href=photoUrl(bid.photo_path);th.target="_blank";th.rel="noopener";
+    th.style.backgroundImage=`url("${th.href}")`;th.title="Open full photo";th.setAttribute("aria-label",`Open ${bid.full_name}'s photo`);
+    const meta=document.createElement("span");meta.className="meta";
+    const nm=document.createElement("b");nm.textContent=bid.full_name;
+    const info=document.createElement("span");info.className="mono";info.textContent=`${gbp(bid.amount_gbp)} · ${when(bid.created_at)}`;
+    const mail=document.createElement("a");mail.className="adm-mail";mail.style.maxWidth="none";mail.style.textAlign="left";
+    mail.href="mailto:"+encodeURIComponent(bid.email).replace(/%40/g,"@");mail.textContent=bid.email;
+    meta.append(nm,info,mail);
+    const rm=document.createElement("button");rm.type="button";rm.className="btn danger";rm.textContent="Remove";
+    rm.onclick=()=>removeBid(bid,i===0);
+    li.append(th,meta,rm);ul.appendChild(li);
+  });
+}
+async function removeBid(bid,leading){
+  if(A.busy) return;
+  const next=A.bids.find(b=>b.id!==bid.id);
+  const after=!leading?"":next?`\n\nThe next highest bid, ${gbp(next.amount_gbp)} by ${next.full_name}, becomes the leading bid.`:"\n\nThere are no other bids, so the sleeve will be empty.";
+  if(!confirm(`Remove ${bid.full_name}'s bid of ${gbp(bid.amount_gbp)}?${after}\n\nTheir photo is deleted. This can't be undone.`)) return;
+  A.busy=true;admSay("Removing bid…");
+  const {data:path,error}=await S.sb.rpc("admin_sleeve_delete",{p_id:bid.id});
+  let fileNote="";
+  if(!error&&path){
+    const rm=await S.sb.storage.from("photos").remove([path]);
+    if(rm.error||!rm.data?.length) fileNote=" The photo file couldn't be deleted from storage.";
+  }
+  A.busy=false;
+  if(error){
+    const t=error.message||"";
+    admSay(/not_admin|JWT|jwt/.test(t)?"You're no longer signed in as the organiser. Sign in again."
+      :/not_found/.test(t)?"That bid was already removed."
+      :"The removal didn't save. Check your connection and try again.","err");
+  } else admSay(`Removed ${bid.full_name}'s bid of ${gbp(bid.amount_gbp)}.`+(leading?next?` ${gbp(next.amount_gbp)} by ${next.full_name} now leads.`:" The sleeve is empty again.":"")+fileNote,"ok");
+  try{await loadBids();await loadSleeve();}catch(e){}
+  renderBids();render();
+}
 async function enterAdmin(silent){
   try{await loadAdmin();}
   catch(err){
@@ -850,11 +1029,12 @@ async function enterAdmin(silent){
   document.querySelector(".panel:not(#admin-panel)").hidden=true;
   $("admin-panel").hidden=false;$("admin-open").hidden=true;
   grid.classList.add("admin");admSay("");
-  render();renderAdminList();
+  await loadBids();
+  render();renderAdminList();renderBids();
   return true;
 }
 function leaveAdmin(){
-  A.on=false;A.rows=[];A.pick=null;A.ghost=null;A.drag=null;
+  A.on=false;A.rows=[];A.pick=null;A.ghost=null;A.drag=null;A.bids=[];$("adm-bids").innerHTML="";
   document.querySelector(".panel:not(#admin-panel)").hidden=false;
   $("admin-panel").hidden=true;$("admin-open").hidden=false;
   grid.classList.remove("admin","dragging");$("adm-list").innerHTML="";
@@ -877,7 +1057,7 @@ $("login-form").addEventListener("submit",async e=>{
 });
 $("adm-signout").onclick=async()=>{await S.sb.auth.signOut();leaveAdmin();};
 $("adm-copy").onclick=async()=>{
-  const list=[...new Set(A.rows.map(r=>r.email).filter(Boolean))].join("; ");
+  const list=[...new Set([...A.rows,...A.bids].map(r=>r.email).filter(Boolean))].join("; ");   // includes sleeve bidders
   if(!list){admSay("No emails to copy yet.");return;}
   try{await navigator.clipboard.writeText(list);admSay("Copied "+list.split("; ").length+" emails.","ok");}
   catch(e){admSay("Couldn't copy automatically. Emails: "+list);}
@@ -891,12 +1071,15 @@ buildCells();render();
   }
   if(!window.supabase){banner("Couldn't load the booking service. Check your connection and reload the page.");return;}
   S.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true}});
-  try{await loadSpaces();S.ready=true;banner("");render();}
+  try{await loadSpaces();S.ready=true;banner("");}
   catch(e){banner("Couldn't load reservations right now. Reload the page to try again.");return;}
+  try{await loadSleeve();}catch(e){}   // the sleeve auction is optional until sleeve-auction.sql is run
+  render();
   try{const {data:{session}}=await S.sb.auth.getSession();if(session) await enterAdmin(true);}catch(e){}
   setInterval(async()=>{
     if(S.busy||A.busy||A.drag||document.hidden) return;
-    try{await loadSpaces();if(A.on){await loadAdmin();renderAdminList();}render();}catch(e){}
+    try{await loadSpaces();try{await loadSleeve();}catch(e){}
+      if(A.on){await loadAdmin();renderAdminList();await loadBids();renderBids();}render();}catch(e){}
   },20000);
 })();
 </script>
