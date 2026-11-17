@@ -233,7 +233,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
           <div class="adj">
             <label for="adj-zoom">Zoom</label><input type="range" id="adj-zoom" data-k="zoom" min="100" max="400" value="100"><output for="adj-zoom">100</output>
             <label for="adj-brightness">Brightness</label><input type="range" id="adj-brightness" data-k="brightness" min="-100" max="100" value="0"><output for="adj-brightness">0</output>
-            <label for="adj-contrast">Contrast</label><input type="range" id="adj-contrast" data-k="contrast" min="-100" max="100" value="-50"><output for="adj-contrast">-50</output>
+            <label for="adj-contrast">Contrast</label><input type="range" id="adj-contrast" data-k="contrast" min="-100" max="100" value="0"><output for="adj-contrast">0</output>
             <label for="adj-midtones">Midtones</label><input type="range" id="adj-midtones" data-k="midtones" min="-100" max="100" value="0"><output for="adj-midtones">0</output>
             <label for="adj-sharpness">Sharpness</label><input type="range" id="adj-sharpness" data-k="sharpness" min="0" max="100" value="0"><output for="adj-sharpness">0</output>
           </div>
@@ -559,7 +559,7 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{S.side=b.dat
 const EXT={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"};
 /* Uploaded photos are drawn on a canvas in colour; the sliders adjust that
    canvas live and the canvas itself (what you see) is what gets uploaded, as a JPEG. */
-const MAX_PX=2000, ADJ0={zoom:100,brightness:0,contrast:-50,midtones:0,sharpness:0};
+const MAX_PX=2000, ADJ0={zoom:100,brightness:0,contrast:0,midtones:0,sharpness:0};
 /* cx,cy: centre of the crop as a fraction of the photo. ar: crop aspect (width/height of the chosen spaces). */
 const IMG={px:null,w:0,h:0,adj:{...ADJ0},token:0,raf:0,cx:.5,cy:.5,ar:1,arTimer:0};
 const selAspect=()=>isSleeve()?1:S.sel?S.sel.w/S.sel.h:1;   // the sleeve space is square
