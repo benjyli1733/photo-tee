@@ -946,7 +946,6 @@ document.querySelectorAll("[data-export]").forEach(b=>b.onclick=async()=>{
 $("adm-remove").onclick=async()=>{
   const row=A.rows.find(r=>r.id===A.pick)||(A.pick&&byId(A.pick)); if(!row||A.busy) return;
   const where=`${sideName(row.side)} ${rectLabel(row)}`;
-  if(!confirm(`Remove ${row.full_name||"this"}'s photo from ${where}?\n\nTheir squares become free again and the photo is deleted. This can't be undone.`)) return;
   A.busy=true;$("adm-remove").disabled=true;admSay("Removing…");
   const {data:path,error}=await S.sb.rpc("admin_delete",{p_id:row.id});
   let fileNote="";
@@ -995,8 +994,6 @@ function renderBids(){
 async function removeBid(bid,leading){
   if(A.busy) return;
   const next=A.bids.find(b=>b.id!==bid.id);
-  const after=!leading?"":next?`\n\nThe next highest bid, ${gbp(next.amount_gbp)} by ${next.full_name}, becomes the leading bid.`:"\n\nThere are no other bids, so the sleeve will be empty.";
-  if(!confirm(`Remove ${bid.full_name}'s bid of ${gbp(bid.amount_gbp)}?${after}\n\nTheir photo is deleted. This can't be undone.`)) return;
   A.busy=true;admSay("Removing bid…");
   const {data:path,error}=await S.sb.rpc("admin_sleeve_delete",{p_id:bid.id});
   let fileNote="";
