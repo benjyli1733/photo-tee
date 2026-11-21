@@ -15,8 +15,8 @@
   --display:"Archivo","Arial Black",system-ui,sans-serif;
   --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-  /* photos are shown in full colour */
-  --gold:none;
+  /* photos are shown in black and white */
+  --gold:grayscale(1);
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0f131c; --surface:#171c28; --fg:#e9ecf3; --muted:#9aa3b8; --line:#2a3142;
@@ -67,9 +67,9 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
    Square x 33..71, y 96..134 in the viewBox (mirrored to x 329..367 on the back). */
 .sleeve{position:absolute;top:17.961%;width:9.5%;height:9.223%;padding:0;border:1px dashed rgba(255,255,255,.4);border-radius:2px;
   background:var(--print) center/cover no-repeat;color:rgba(255,255,255,.6);font:500 clamp(7px,.8vw,10px)/1.1 var(--mono);
-  display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;filter:var(--gold)}
+  display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer}
 .sleeve.l{left:8.25%} .sleeve.r{left:82.25%}
-.sleeve.has-img{border:0;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.sleeve.has-img{filter:var(--gold);border:0;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .sleeve.active{outline:3px solid var(--sel);outline-offset:2px}
 .sleeve:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 .grid.dim{opacity:.35}
@@ -155,6 +155,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 .adm-pick:hover{background:var(--bg)}
 .adm-pick[aria-pressed="true"]{background:var(--bg);box-shadow:inset 0 0 0 2px var(--sel)}
 .adm-pick:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+.adm-pick .thumb,.adm-bid a.thumb{filter:grayscale(1)}
 .adm-pick .thumb{width:40px;height:40px;border-radius:6px}
 .adm-pick .meta{min-width:0;display:flex;flex-direction:column;font-size:14px}
 .adm-pick .meta b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -238,7 +239,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
             <label for="adj-sharpness">Sharpness</label><input type="range" id="adj-sharpness" data-k="sharpness" min="0" max="100" value="0"><output for="adj-sharpness">0</output>
           </div>
           <div class="row">
-            <span class="hint">Adjust the look, then reserve.</span>
+            <span class="hint">Photos are printed in black and white.</span>
             <button type="button" class="btn ghost" id="adj-reset">Reset</button>
           </div>
         </div>
@@ -557,7 +558,7 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{S.side=b.dat
 
 /* ---------- photo ---------- */
 const EXT={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"};
-/* Uploaded photos are drawn on a canvas in colour; the sliders adjust that
+/* Uploaded photos are converted to black and white on a canvas; the sliders adjust that
    canvas live and the canvas itself (what you see) is what gets uploaded, as a JPEG. */
 const MAX_PX=2000, ADJ0={zoom:100,brightness:0,contrast:0,midtones:0,sharpness:0};
 /* cx,cy: centre of the crop as a fraction of the photo. ar: crop aspect (width/height of the chosen spaces). */
@@ -606,7 +607,7 @@ function paintPreview(){
   const out=pctx.createImageData(w,h); let d=out.data;
   for(let y=0,j=0;y<h;y++){
     let o=((y0+y)*W+x0)*4;
-    for(let x=0;x<w;x++,j+=4,o+=4){d[j]=t[px[o]];d[j+1]=t[px[o+1]];d[j+2]=t[px[o+2]];d[j+3]=255;}
+    for(let x=0;x<w;x++,j+=4,o+=4){d[j]=d[j+1]=d[j+2]=t[Math.round(.299*px[o]+.587*px[o+1]+.114*px[o+2])];d[j+3]=255;}   // luminance -> black and white
   }
   if(adj.sharpness>0){                                       // unsharp mask per colour channel, 3x3 box blur
     const amt=adj.sharpness/40, s=new Uint8ClampedArray(d), R=w*4;
@@ -683,7 +684,7 @@ async function setFile(f){
   preview.width=w;preview.height=h;
   pctx.fillStyle="#fff";pctx.fillRect(0,0,w,h);               // flatten transparent PNGs onto white
   pctx.drawImage(img,0,0,w,h);
-  const px=pctx.getImageData(0,0,w,h).data;                   // full colour RGBA
+  const px=pctx.getImageData(0,0,w,h).data;                   // RGBA; made black and white when painted
   Object.assign(IMG,{px,w,h,adj:{...ADJ0},cx:.5,cy:.5,ar:selAspect()});
   setAdjUI();paintPreview();
   S.file=f;
@@ -923,6 +924,9 @@ async function buildLayout(which){
       catch(e){failed++;}
     }
   }
+  const im=ctx.getImageData(0,0,cv.width,cv.height), d=im.data;   // black and white, keeping transparency
+  for(let j=0;j<d.length;j+=4){if(d[j+3]){const g=.299*d[j]+.587*d[j+1]+.114*d[j+2];d[j]=d[j+1]=d[j+2]=g;}}
+  ctx.putImageData(im,0,0);
   const blob=await new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error("encode")),"image/png"));
   return {blob,drawn,failed,width:cv.width,height:cv.height};
 }
