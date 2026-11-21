@@ -72,6 +72,16 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
 .sleeve.has-img{filter:var(--gold);border:0;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .sleeve.active{outline:3px solid var(--sel);outline-offset:2px}
 .sleeve:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
+/* Front/Back views: the sleeve photo lies along the slanted sleeve and is squeezed progressively towards the
+   sleeve's top fold, as if wrapped round the arm. A 100px box placed with an affine transform (layoutSleevePrint);
+   the photo is drawn as vertical strips whose widths and shading follow a cylinder. */
+.sleeve-print{position:absolute;left:0;top:0;width:100px;height:100px;margin:0;padding:0;border:0;border-radius:0;transform-origin:0 0;
+  background:var(--print);cursor:pointer;overflow:hidden;color:rgba(255,255,255,.6);
+  font:500 13px/1.1 var(--mono);display:flex;align-items:center;justify-content:center;text-align:center}
+.sleeve-print.empty{outline:1.5px dashed rgba(255,255,255,.4);outline-offset:-1.5px}
+.sleeve-print.has-img{background:transparent;filter:var(--gold)}
+.sleeve-print i{position:absolute;top:0;bottom:0;background-repeat:no-repeat}
+.sleeve-print:focus-visible{outline:3px solid var(--sel);outline-offset:0}
 .grid.dim{opacity:.35}
 .panel[data-mode="sleeve"] .only-grid,.panel:not([data-mode="sleeve"]) .only-sleeve{display:none}
 .bid-row{display:flex;align-items:center;gap:8px;font:600 18px var(--mono)}
@@ -190,13 +200,14 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
         <button id="tab-back" role="tab" aria-selected="false" data-side="back">Back<span class="n" id="n-back"></span></button>
         <button id="tab-sleeve" role="tab" aria-selected="false" data-side="sleeve">Right sleeve<span class="n" id="n-sleeve"></span></button>
       </div>
-      <div class="shirt">
+      <div class="shirt" id="shirt-box">
         <svg viewBox="0 22 400 412" aria-hidden="true">
           <path class="body" id="shirt-path" d=""/>
           <path class="seam" id="collar-path" d=""/>
         </svg>
         <div class="grid" id="grid" role="grid" aria-label="Photo spaces"></div>
         <button type="button" class="sleeve l" id="sleeve" aria-label="Right sleeve photo, auctioned to the highest bidder">Right<br>sleeve</button>
+        <button type="button" class="sleeve-print" id="sleeve-print" aria-label="Right sleeve photo, auctioned to the highest bidder" hidden></button>
       </div>
       <p class="legend" id="sleeve-note" hidden>The right sleeve holds one photo, auctioned to the highest bidder.</p>
       <div class="legend" id="grid-legend" aria-live="polite">
@@ -390,12 +401,60 @@ function buildCells(){
     grid.appendChild(b);
   }
 }
+/* Sleeve print geometry, in viewBox units, for the front view (wearer's right sleeve = viewer's left).
+   The sleeve runs from the armhole (top right) down-left to the cuff. The photo's top faces the armhole, as when
+   the arm hangs down; its left edge is on the sleeve's top fold. Back view = mirror image, with the fold on the photo's right. */
+const SLV={centre:[47.9,117.2], axis:[-.715,.699], len:32, width:40,   // axis: unit vector armhole→cuff
+  fold:-70, inner:25, strips:28};                                       // the photo wraps from -70° (fold) to +25°
+function sleeveFrame(view){
+  const m=view==="back"?-1:1, [cx,cy]=SLV.centre, ax=SLV.axis[0]*m, ay=SLV.axis[1];
+  const down=[ax*SLV.len,ay*SLV.len], right=[ay*SLV.width,-ax*SLV.width];   // right = "down" turned 90°
+  const x0=(view==="back"?400-cx:cx)-right[0]/2-down[0]/2, y0=cy-right[1]/2-down[1]/2-22;   // viewBox starts at y=22
+  return {right,down,x0,y0};
+}
+function sleeveStrips(view){
+  /* Cylinder: photo column u (0..1) sits at angle θ round the arm; on screen it lands at sin θ, so columns near the
+     fold get progressively narrower ("gradient compression") and darker as the fabric turns away from the light. */
+  const N=SLV.strips, rad=d=>d*Math.PI/180;
+  const t0=rad(view==="back"?-SLV.inner:SLV.fold), t1=rad(view==="back"?-SLV.fold:SLV.inner);
+  const s0=Math.sin(t0), s1=Math.sin(t1), out=[];
+  for(let i=0;i<N;i++){
+    const a=t0+(t1-t0)*i/N, b=t0+(t1-t0)*(i+1)/N;
+    const x=(Math.sin(a)-s0)/(s1-s0), w=(Math.sin(b)-Math.sin(a))/(s1-s0);
+    out.push({x,w,shade:.62+.38*Math.cos((a+b)/2)});
+  }
+  return out;
+}
+function layoutSleevePrint(){
+  const el=$("sleeve-print"); if(el.hidden) return;
+  const k=$("shirt-box").clientWidth/400, f=sleeveFrame(el.classList.contains("back")?"back":"front");
+  el.style.transform=`matrix(${[f.right[0]*k/100,f.right[1]*k/100,f.down[0]*k/100,f.down[1]*k/100,f.x0*k,f.y0*k].join(",")})`;
+}
+function paintSleeveStrips(el,url,view){
+  el.innerHTML="";
+  const N=SLV.strips;
+  sleeveStrips(view).forEach((s,i)=>{
+    const d=document.createElement("i");
+    d.style.left=(s.x*100)+"%";d.style.width=`calc(${s.w*100}% + .6px)`;     // tiny overlap hides seams
+    d.style.backgroundImage=`url("${url}")`;
+    d.style.backgroundSize=`${N*100}% 100%`;d.style.backgroundPosition=`${i/(N-1)*100}% 0`;
+    d.style.filter=`brightness(${s.shade.toFixed(3)})`;
+    el.appendChild(d);
+  });
+}
+new ResizeObserver(layoutSleevePrint).observe($("shirt-box"));
 function renderSleeve(view){
-  const sl=$("sleeve"), mine=isSleeve()&&!A.on&&S.fileUrl;
+  const sl=$("sleeve"), pr=$("sleeve-print"), mine=isSleeve()&&!A.on&&S.fileUrl;
   const url=mine?S.fileUrl:S.sleeve.photo_path?photoUrl(S.sleeve.photo_path):"";
+  /* Right sleeve tab: flat square so bidders see their crop clearly. Front/Back: photo as it would sit on the sleeve. */
+  sl.hidden=!isSleeve();pr.hidden=isSleeve();
   sl.className="sleeve "+(view==="back"?"r":"l")+(url?" has-img":"")+(isSleeve()?" active":"");
   sl.style.backgroundImage=url?`url("${url}")`:"";
   sl.innerHTML=url?"":"Right<br>sleeve";
+  pr.className="sleeve-print "+view+(url?" has-img":" empty");
+  const key=url+"|"+view;
+  if(pr.dataset.key!==key){pr.dataset.key=key;if(url) paintSleeveStrips(pr,url,view);else pr.innerHTML="Right<br>sleeve";}
+  layoutSleevePrint();
   $("n-sleeve").textContent=S.sleeve.amount!=null?gbp(S.sleeve.amount):S.sleeveOk?"no bids":"";
   $("book-panel").dataset.mode=isSleeve()?"sleeve":"grid";
   $("panel-title").textContent=isSleeve()?"Bid for the right sleeve":"Reserve your spaces";
@@ -704,7 +763,7 @@ $("email").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate
 $("consent").addEventListener("change",()=>{delete $("msg").dataset.sticky;validate();});
 $("agree").addEventListener("change",e=>{S.agreedKey=e.target.checked?agreeKey():"";delete $("msg").dataset.sticky;validate();});
 $("bid").addEventListener("input",()=>{delete $("msg").dataset.sticky;renderAgree();validate();});
-$("sleeve").onclick=()=>{S.side="sleeve";S.sel=null;S.anchor=null;render();};
+$("sleeve").onclick=$("sleeve-print").onclick=()=>{S.side="sleeve";S.sel=null;S.anchor=null;render();};
 
 /* ---------- data ---------- */
 async function loadSpaces(){
