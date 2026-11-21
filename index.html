@@ -402,26 +402,30 @@ function buildCells(){
   }
 }
 /* Sleeve print geometry, in viewBox units, for the front view (wearer's right sleeve = viewer's left).
-   The sleeve runs from the armhole (top right) down-left to the cuff. The photo's top faces the armhole, as when
-   the arm hangs down; its left edge is on the sleeve's top fold. Back view = mirror image, with the fold on the photo's right. */
-const SLV={centre:[47.9,117.2], axis:[-.715,.699], len:32, width:40,   // axis: unit vector armhole→cuff
-  fold:-70, inner:25, strips:28};                                       // the photo wraps from -70° (fold) to +25°
+   The photo is centred on the sleeve's top fold (the outline edge from the shoulder (70,52) down to the cuff (8,120))
+   and wraps round the arm: from the front you see its right half, squeezed into the fold; from the back, its left half.
+   The photo's top faces the armhole, as when the arm hangs down. */
+const SLV={foldAt:[27.5,98.6], fold:[-.674,.739],   // a point on the fold line level with the middle of the sleeve, and its direction
+  len:38, width:22, inset:.8,                        // photo length along the sleeve; visible width across it
+  edge:-90, inner:-15, strips:32};                   // visible half runs from the fold (-90°, side-on) to -15° (nearly facing you)
 function sleeveFrame(view){
-  const m=view==="back"?-1:1, [cx,cy]=SLV.centre, ax=SLV.axis[0]*m, ay=SLV.axis[1];
-  const down=[ax*SLV.len,ay*SLV.len], right=[ay*SLV.width,-ax*SLV.width];   // right = "down" turned 90°
-  const x0=(view==="back"?400-cx:cx)-right[0]/2-down[0]/2, y0=cy-right[1]/2-down[1]/2-22;   // viewBox starts at y=22
-  return {right,down,x0,y0};
+  const back=view==="back", fx=SLV.fold[0]*(back?-1:1), fy=SLV.fold[1];
+  const down=[fx*SLV.len,fy*SLV.len], ru=[fy,-fx], right=[ru[0]*SLV.width,ru[1]*SLV.width];   // right = "down" turned 90°
+  const px=back?400-SLV.foldAt[0]:SLV.foldAt[0], py=SLV.foldAt[1];
+  /* front: the photo's left edge lies on the fold. back: its right edge does (the sleeve is mirrored, the photo isn't) */
+  const off=back?-(SLV.width+SLV.inset):SLV.inset;
+  return {right,down,x0:px+ru[0]*off-down[0]/2,y0:py+ru[1]*off-down[1]/2-22};   // viewBox starts at y=22
 }
 function sleeveStrips(view){
-  /* Cylinder: photo column u (0..1) sits at angle θ round the arm; on screen it lands at sin θ, so columns near the
-     fold get progressively narrower ("gradient compression") and darker as the fabric turns away from the light. */
-  const N=SLV.strips, rad=d=>d*Math.PI/180;
-  const t0=rad(view==="back"?-SLV.inner:SLV.fold), t1=rad(view==="back"?-SLV.fold:SLV.inner);
-  const s0=Math.sin(t0), s1=Math.sin(t1), out=[];
+  /* Cylinder: photo column at angle θ round the arm lands on screen at sin θ, so columns near the fold get
+     progressively narrower ("gradient compression") and darker as the fabric turns away from the light. */
+  const N=SLV.strips, rad=d=>d*Math.PI/180, back=view==="back";
+  const t0=rad(back?-SLV.inner:SLV.edge), t1=rad(back?-SLV.edge:SLV.inner);
+  const s0=Math.sin(t0), s1=Math.sin(t1), u0=back?0:.5, out=[];   // front shows photo columns .5–1, back 0–.5
   for(let i=0;i<N;i++){
     const a=t0+(t1-t0)*i/N, b=t0+(t1-t0)*(i+1)/N;
-    const x=(Math.sin(a)-s0)/(s1-s0), w=(Math.sin(b)-Math.sin(a))/(s1-s0);
-    out.push({x,w,shade:.62+.38*Math.cos((a+b)/2)});
+    out.push({x:(Math.sin(a)-s0)/(s1-s0), w:(Math.sin(b)-Math.sin(a))/(s1-s0), u:u0+.5*i/N, du:.5/N,
+      shade:.6+.4*Math.cos((a+b)/2)});
   }
   return out;
 }
@@ -432,12 +436,12 @@ function layoutSleevePrint(){
 }
 function paintSleeveStrips(el,url,view){
   el.innerHTML="";
-  const N=SLV.strips;
-  sleeveStrips(view).forEach((s,i)=>{
+  sleeveStrips(view).forEach(s=>{
     const d=document.createElement("i");
     d.style.left=(s.x*100)+"%";d.style.width=`calc(${s.w*100}% + .6px)`;     // tiny overlap hides seams
     d.style.backgroundImage=`url("${url}")`;
-    d.style.backgroundSize=`${N*100}% 100%`;d.style.backgroundPosition=`${i/(N-1)*100}% 0`;
+    /* the strip shows photo columns u..u+du: scale the photo to 1/du strip-widths and slide it into place */
+    d.style.backgroundSize=`${100/s.du}% 100%`;d.style.backgroundPosition=`${s.u/(1-s.du)*100}% 0`;
     d.style.filter=`brightness(${s.shade.toFixed(3)})`;
     el.appendChild(d);
   });
