@@ -269,6 +269,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
           <div><dt>Account name</dt><dd>OXFORD UNIVERSITY BADMINTON CLUB</dd></div>
           <div><dt>Sort code</dt><dd>20-65-20</dd></div>
           <div><dt>Account number</dt><dd>53752402</dd></div>
+          <div><dt>Payment reference</dt><dd id="pay-ref">ALUMSHIRT_ + your initials</dd></div>
         </dl>
         <label class="agree off" id="agree-wrap" for="agree">
           <input type="checkbox" id="agree" disabled>
@@ -531,7 +532,7 @@ function renderAgree(){
     box.disabled=false;wrap.classList.remove("off");txt.innerHTML="";
     txt.append("If mine is the highest bid when the auction closes, I agree to pay ");
     const b=document.createElement("b");b.textContent=gbp(v);txt.append(b);
-    txt.append(` by bank transfer to ${BANK}. I understand that a higher bid will replace mine.`);
+    txt.append(` by bank transfer to ${BANK}, with the payment reference shown above. I understand that a higher bid will replace mine.`);
     return;
   }
   if(!S.sel){box.disabled=true;wrap.classList.add("off");txt.textContent="Select your spaces to see the price.";return;}
@@ -539,7 +540,7 @@ function renderAgree(){
   box.disabled=false;wrap.classList.remove("off");txt.innerHTML="";
   txt.append("I agree to pay ");
   const b=document.createElement("b");b.textContent=gbp(n*PRICE);txt.append(b);
-  txt.append(` (${n} space${n>1?"s":""} × ${gbp(PRICE)}) for this reservation. My spaces are held once I reserve, and I'll pay by bank transfer to OXFORD UNIVERSITY, sort code 20-65-20, account 53752402.`);
+  txt.append(` (${n} space${n>1?"s":""} × ${gbp(PRICE)}) for this reservation. My spaces are held once I reserve, and I'll pay by bank transfer to ${BANK}, with the payment reference shown above.`);
 }
 function validate(){
   const name=$("fullname").value.trim();
@@ -762,7 +763,11 @@ const drop=$("drop");
 ["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over");}));
 ["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over");}));
 drop.addEventListener("drop",e=>setFile(e.dataTransfer.files[0]));
-$("fullname").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
+function renderPayRef(){
+  const ini=$("fullname").value.trim().split(/\s+/).map(w=>w.replace(/[^A-Za-z]/g,"")[0]||"").join("").toUpperCase();
+  $("pay-ref").textContent=ini?`ALUMSHIRT_${ini}`:"ALUMSHIRT_ + your initials";
+}
+$("fullname").addEventListener("input",()=>{delete $("msg").dataset.sticky;renderPayRef();validate();});
 $("email").addEventListener("input",()=>{delete $("msg").dataset.sticky;validate();});
 $("consent").addEventListener("change",()=>{delete $("msg").dataset.sticky;validate();});
 $("agree").addEventListener("change",e=>{S.agreedKey=e.target.checked?agreeKey():"";delete $("msg").dataset.sticky;validate();});
